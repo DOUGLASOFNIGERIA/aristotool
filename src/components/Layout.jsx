@@ -36,6 +36,9 @@ export default function Layout({
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const currentNav = activeNav || page
+  const visibleRailItems = user?.isAdmin
+    ? [...railItems, { id: 'admin', label: 'Admin', icon: 'bolt' }]
+    : railItems
   const initials = String(user?.name || 'Learner')
     .split(' ')
     .map((part) => part[0])
@@ -56,7 +59,7 @@ export default function Layout({
         <div className="rail-logo" aria-label="Aristotool">
           <Icon name="shield" size={24} />
         </div>
-        {railItems.map((item) => (
+        {visibleRailItems.map((item) => (
           <button
             key={item.id}
             className={`rail-item ${currentNav === item.id ? 'active' : ''}`}
@@ -144,6 +147,18 @@ export default function Layout({
                   <span>{user?.email}</span>
                 </div>
               </div>
+              {user?.isAdmin && (
+                <button
+                  className="menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    navigate('admin')
+                  }}
+                >
+                  <Icon name="bolt" /> Admin workspace
+                </button>
+              )}
               <button
                 className="menu-item"
                 role="menuitem"

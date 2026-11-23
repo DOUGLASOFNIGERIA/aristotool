@@ -27,6 +27,8 @@ export const api = {
   me: () => request('/auth/me'),
   register: (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   confirm: (token) => request('/auth/confirm', { method: 'POST', body: JSON.stringify({ token }) }),
+  verifyOtp: (email, code) =>
+    request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, code }) }),
   resend: (email) => request('/auth/resend', { method: 'POST', body: JSON.stringify({ email }) }),
   login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
@@ -34,4 +36,14 @@ export const api = {
   catalog: () => request('/catalog'),
   state: () => request('/state'),
   setProgress: (payload) => request('/progress', { method: 'POST', body: JSON.stringify(payload) }),
+  adminCatalog: () => request('/admin/catalog'),
+  adminSaveResource: (payload) =>
+    request('/admin/resources', { method: 'POST', body: JSON.stringify(payload) }),
+  adminSavePath: (payload) =>
+    request('/admin/paths', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUpload: (payload) =>
+    request('/admin/upload', { method: 'POST', body: JSON.stringify(payload) }),
+  adminDeleteResource: (id) =>
+    request(`/admin/resources/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  adminDeletePath: (id) => request(`/admin/paths/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 }

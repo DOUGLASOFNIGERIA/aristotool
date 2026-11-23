@@ -11,6 +11,7 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import ConfirmEmail from './pages/ConfirmEmail.jsx'
 import Onboarding from './pages/Onboarding.jsx'
+import Admin from './pages/Admin.jsx'
 import { resources as seedResources, learningPaths as seedPaths } from './data/resources.js'
 import { api } from './api.js'
 
@@ -21,6 +22,7 @@ export default function App() {
   const [flow, setFlow] = useState('login')
   const [pendingEmail, setPendingEmail] = useState('')
   const [confirmToken, setConfirmToken] = useState('')
+  const [devOtp, setDevOtp] = useState('')
   const [resources, setResources] = useState(seedResources)
   const [paths, setPaths] = useState(seedPaths)
   const [page, setPage] = useState('home')
@@ -215,10 +217,11 @@ export default function App() {
     if (flow === 'register') {
       return (
         <Register
-          onRegistered={({ email, token }) => {
+          onRegistered={({ email, devCode }) => {
             setPendingEmail(email)
-            setConfirmToken(token)
-            changeFlow('confirm', `/confirm?token=${encodeURIComponent(token)}`)
+            setConfirmToken('')
+            setDevOtp(devCode || '')
+            changeFlow('confirm', '/confirm')
           }}
           onGoLogin={() => changeFlow('login', '/')}
         />
@@ -229,11 +232,13 @@ export default function App() {
         <ConfirmEmail
           email={pendingEmail}
           token={confirmToken}
+          devCode={devOtp}
           onBack={() => changeFlow('register', '/register')}
           onGoLogin={() => changeFlow('login', '/')}
           onNeedsConfirmation={(email) => {
             setPendingEmail(email)
             setConfirmToken('')
+            setDevOtp('')
             changeFlow('confirm', '/confirm')
           }}
           onConfirmed={(updated) => {
@@ -328,6 +333,17 @@ export default function App() {
         />
       )}
       {page === 'about' && <About navigate={navigate} />}
+      {page === 'admin' && user.isAdmin && (
+        <Admin
+          resources={resources}
+          paths={paths}
+          onCatalogChange={(catalog) => {
+            if (catalog.resources?.length) setResources(catalog.resources)
+            if (catalog.paths?.length) setPaths(catalog.paths)
+          }}
+          onNotify={setSnack}
+        />
+      )}
 
       {selectedResource && (
         <ResourceDialog

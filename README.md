@@ -32,8 +32,8 @@ The application is built as a React single-page app backed by a small Express AP
 
 Current catalog:
 
-- 20 resources: 7 videos, 7 notes, and 6 labs
-- 4 guided learning paths
+- 29 resources: 7 videos, 13 notes, and 9 labs
+- 7 guided learning paths
 - 9 categories: Reconnaissance, Web Application, Network Security, Cryptography, Wireless, System Security, Digital Forensics, Bug Bounty, and Cloud Security
 - 3 difficulty levels: Beginner, Intermediate, and Advanced
 
@@ -89,6 +89,7 @@ aristotool/
 ├── backend/
 │   ├── data/
 │   │   └── aristotool.db          # Generated at runtime; ignored by git
+│   ├── catalog.js                 # Admin payload validation and normalization
 │   ├── db.js                      # Schema, helpers, seeding, persistence
 │   └── server.js                  # Express API and HTTP routes
 ├── dist/                          # Production build output; ignored by git
@@ -106,6 +107,7 @@ aristotool/
 │   │   └── resources.js           # Catalog, media map, categories, paths
 │   ├── pages/
 │   │   ├── About.jsx
+│   │   ├── Admin.jsx              # Admin catalog management workspace
 │   │   ├── ConfirmEmail.jsx
 │   │   ├── Home.jsx
 │   │   ├── Learning.jsx
@@ -157,6 +159,10 @@ Set these before starting the API:
 ```bash
 TURSO_DATABASE_URL=libsql://your-db-your-org.aws-us-east-1.turso.io
 TURSO_AUTH_TOKEN=your-token
+GMAIL_USER=your-address@gmail.com
+GMAIL_APP_PASSWORD=your-16-character-app-password
+FROM_EMAIL="Aristool <no-reply@aristotool.dev>"
+ADMIN_EMAILS=you@example.com
 ```
 
 On Windows PowerShell:
@@ -164,7 +170,13 @@ On Windows PowerShell:
 ```powershell
 $env:TURSO_DATABASE_URL = "libsql://your-db-your-org.aws-us-east-1.turso.io"
 $env:TURSO_AUTH_TOKEN = "your-token"
+$env:GMAIL_USER = "your-address@gmail.com"
+$env:GMAIL_APP_PASSWORD = "your-16-character-app-password"
+$env:FROM_EMAIL = "Aristool <no-reply@aristotool.dev>"
+$env:ADMIN_EMAILS = "you@example.com"
 ```
+
+`GMAIL_USER` and `GMAIL_APP_PASSWORD` enable one-time-code emails during registration. `FROM_EMAIL` defaults to `Aristool <no-reply@aristotool.dev>`.
 
 ## Running the Application
 
@@ -243,15 +255,22 @@ All routes return JSON. Cookie-based session authentication is used for protecte
 | --- | --- | --- | --- |
 | `GET` | `/api/health` | No | Health check |
 | `GET` | `/api/auth/me` | No | Returns the current user or `null` |
-| `POST` | `/api/auth/register` | No | Creates an unconfirmed account and returns a confirmation token |
-| `POST` | `/api/auth/confirm` | No | Consumes a token, confirms the account, creates a session |
-| `POST` | `/api/auth/resend` | No | Issues a fresh confirmation token for an unconfirmed account |
+| `POST` | `/api/auth/register` | No | Creates an unconfirmed account and emails a 6-digit code |
+| `POST` | `/api/auth/verify-otp` | No | Verifies the code, confirms the account, creates a session |
+| `POST` | `/api/auth/confirm` | No | Consumes a legacy confirmation link, confirms the account, creates a session |
+| `POST` | `/api/auth/resend` | No | Emails a fresh 6-digit code for an unconfirmed account |
 | `POST` | `/api/auth/login` | No | Authenticates and creates a session |
 | `POST` | `/api/auth/logout` | No | Deletes the session and clears the cookie |
 | `POST` | `/api/auth/onboarding` | Yes | Saves interests, experience, and goals |
 | `GET` | `/api/catalog` | No | Returns resources and learning paths with media metadata |
 | `GET` | `/api/state` | Yes | Returns the current user's progress |
 | `POST` | `/api/progress` | Yes | Sets a bookmark, completed, or started value |
+| `GET` | `/api/admin/catalog` | Admin | Returns the full catalog for management |
+| `POST` | `/api/admin/resources` | Admin | Creates or updates one resource |
+| `POST` | `/api/admin/paths` | Admin | Creates or updates one learning path |
+| `POST` | `/api/admin/upload` | Admin | Upserts a JSON bundle of resources and paths |
+| `DELETE` | `/api/admin/resources/:id` | Admin | Deletes a resource |
+| `DELETE` | `/api/admin/paths/:id` | Admin | Deletes a learning path |
 
 ### Example: login request
 
@@ -293,7 +312,15 @@ The API connects to the Turso/libSQL database configured by:
 ```text
 TURSO_DATABASE_URL=libsql://aristotool-prod-cyberhawk.aws-us-east-1.turso.io
 TURSO_AUTH_TOKEN=...
+GMAIL_USER=your-address@gmail.com
+GMAIL_APP_PASSWORD=...
+FROM_EMAIL=Aristool <no-reply@aristotool.dev>
+ADMIN_EMAILS=you@example.com
 ```
+
+`ADMIN_EMAILS` is optional but recommended. It accepts a comma-separated list of confirmed account emails; matching users are promoted to admins when the API starts.
+
+Verification codes are 6 digits, stored hashed in `confirmations`, expire after `OTP_TTL_MINUTES` (default `10`), and allow `OTP_MAX_ATTEMPTS` incorrect attempts (default `5`). `ALLOW_DEV_OTP=true` returns the code in API responses and displays it in the UI for local testing only; do not enable it in production.
 
 Vercel Production, Preview, and Development environments are configured with the same managed database. No local SQLite file is used at runtime.
 
@@ -301,7 +328,7 @@ Vercel Production, Preview, and Development environments are configured with the
 
 | Table | Purpose |
 | --- | --- |
-| `users` | User identity, password hash, confirmation/onboarding flags, profile preferences |
+| `users` | User identity, password hash, confirmation/onboarding/admin flags, profile preferences |
 | `confirmations` | One-time confirmation tokens with consumed state |
 | `sessions` | Opaque session tokens mapped to users |
 | `progress` | Per-user resource state with a unique user/resource/kind constraint |
@@ -326,10 +353,22 @@ A resource includes:
 
 A learning path includes:
 
-- `id`, `title`, `description`, `difficulty`
-- `resourceIds`, `accent`, `outcome`
+- `id`, `title`, `description`
+- `color`, `icon`, `resourceIds`
 
 When the API starts, `seed()` upserts all resources and paths into the configured libSQL database. Editing the source catalog and restarting the API updates the database without manual SQL.
+
+### Admin catalog management
+
+Admins can manage the live catalog from the **Admin** workspace in the app:
+
+- Add or update a single resource with a form.
+- Create or update learning paths.
+- Upload a JSON bundle containing `resources` and `paths` arrays.
+- Download a template from the admin page, edit it, and upload it again.
+- Delete resources and paths from the inventory list.
+
+The admin navigation item only appears for users whose account email is listed in `ADMIN_EMAILS`. All admin endpoints require both a valid session and the admin flag.
 
 ## Frontend Architecture
 
@@ -337,6 +376,7 @@ When the API starts, `seed()` upserts all resources and paths into the configure
 - `src/App.jsx` owns bootstrapping, auth routing, catalog loading, progress state, dialog state, navigation, theme, and notifications.
 - `src/api.js` centralizes all calls to `/api` and standardizes error handling.
 - `Layout.jsx` renders the persistent app shell, search bar, navigation rail, mobile bottom navigation, theme toggle, and profile menu.
+- `pages/Admin.jsx` provides the admin-only resource form, JSON upload, learning path editor, and catalog inventory.
 - Auth pages are intentionally lightweight and share `AuthLayout.jsx`.
 - `ResourceDialog.jsx` renders the iframe player, source attribution, watch link, and authoritative resource link.
 - Progress changes update the UI optimistically and then persist through `/api/progress`.

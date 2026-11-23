@@ -1,5 +1,5 @@
 import { createClient } from '@tursodatabase/serverless/compat'
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto'
 import {
   resources,
   learningPaths,
@@ -11,6 +11,25 @@ const authToken = process.env.TURSO_AUTH_TOKEN
 
 if (!url) {
   throw new Error('TURSO_DATABASE_URL is required')
+}
+
+function adminEmails() {
+  return String(process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((email) => email.toLowerCase().trim())
+    .filter(Boolean)
+}
+
+function positiveNumber(value, fallback) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+const otpTtlMinutes = positiveNumber(process.env.OTP_TTL_MINUTES, 10)
+const otpMaxAttempts = positiveNumber(process.env.OTP_MAX_ATTEMPTS, 5)
+
+function generateOtp() {
+  return String(randomInt(0, 1000000)).padStart(6, '0')
 }
 
 export const db = createClient({ url, authToken })
@@ -34,7 +53,10 @@ export async function initDb() {
         token TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         created_at TEXT NOT NULL,
-        consumed INTEGER NOT NULL DEFAULT 0
+        consumed INTEGER NOT NULL DEFAULT 0,
+        code_hash TEXT NOT NULL DEFAULT '',
+        expires_at TEXT NOT NULL DEFAULT '',
+        attempts INTEGER NOT NULL DEFAULT 0
       )`,
       `CREATE TABLE IF NOT EXISTS sessions (
         token TEXT PRIMARY KEY,
@@ -61,6 +83,25 @@ export async function initDb() {
     ],
     'write',
   )
+
+  const userColumns = await db.execute('PRAGMA table_info(users)')
+  const hasAdminColumn = userColumns.rows.some((column) => String(column.name) === 'is_admin')
+  if (!hasAdminColumn) {
+    await db.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0')
+  }
+
+  const confirmationColumns = await db.execute('PRAGMA table_info(confirmations)')
+  const confirmationColumnNames = confirmationColumns.rows.map((column) => String(column.name))
+  if (!confirmationColumnNames.includes('code_hash')) {
+    await db.execute("ALTER TABLE confirmations ADD COLUMN code_hash TEXT NOT NULL DEFAULT ''")
+  }
+  if (!confirmationColumnNames.includes('expires_at')) {
+    await db.execute("ALTER TABLE confirmations ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''")
+  }
+  if (!confirmationColumnNames.includes('attempts')) {
+    await db.execute('ALTER TABLE confirmations ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0')
+  }
+
   await seed()
 }
 
@@ -128,6 +169,9 @@ export async function createUser({ name, email, password }) {
 
 export async function createConfirmation(userId) {
   const token = createToken()
+  const code = generateOtp()
+  const createdAt = new Date()
+  const expiresAt = new Date(createdAt.getTime() + otpTtlMinutes * 60 * 1000)
   await db.batch(
     [
       {
@@ -135,13 +179,14 @@ export async function createConfirmation(userId) {
         args: [userId],
       },
       {
-        sql: 'INSERT INTO confirmations (token, user_id, created_at) VALUES (?, ?, ?)',
-        args: [token, userId, new Date().toISOString()],
+        sql: `INSERT INTO confirmations (token, user_id, created_at, code_hash, expires_at, attempts)
+              VALUES (?, ?, ?, ?, ?, 0)`,
+        args: [token, userId, createdAt.toISOString(), hashPassword(code), expiresAt.toISOString()],
       },
     ],
     'write',
   )
-  return token
+  return { token, code }
 }
 
 export async function findConfirmation(token) {
@@ -151,6 +196,50 @@ export async function findConfirmation(token) {
     args: [token],
   })
   return rows[0] || null
+}
+
+export async function findActiveConfirmationByEmail(email) {
+  const { rows } = await db.execute({
+    sql: `SELECT c.* FROM confirmations c
+          JOIN users u ON u.id = c.user_id
+          WHERE u.email = ? AND c.consumed = 0
+          ORDER BY c.created_at DESC LIMIT 1`,
+    args: [String(email).toLowerCase().trim()],
+  })
+  return rows[0] || null
+}
+
+export async function hasRecentConfirmation(email, seconds = 45) {
+  const cutoff = new Date(Date.now() - positiveNumber(seconds, 45) * 1000).toISOString()
+  const { rows } = await db.execute({
+    sql: `SELECT c.token FROM confirmations c
+          JOIN users u ON u.id = c.user_id
+          WHERE u.email = ? AND c.consumed = 0 AND c.created_at > ?
+          LIMIT 1`,
+    args: [String(email).toLowerCase().trim(), cutoff],
+  })
+  return Boolean(rows[0])
+}
+
+export async function verifyConfirmationCode(email, code) {
+  const confirmation = await findActiveConfirmationByEmail(email)
+  if (!confirmation) {
+    throw new Error('No active verification code found. Request a new one.')
+  }
+  if (confirmation.expires_at && new Date(confirmation.expires_at).getTime() < Date.now()) {
+    throw new Error('That code has expired. Request a new one.')
+  }
+  if (Number(confirmation.attempts || 0) >= otpMaxAttempts) {
+    throw new Error('Too many incorrect attempts. Request a new code.')
+  }
+  if (!verifyPassword(String(code).trim(), confirmation.code_hash)) {
+    await db.execute({
+      sql: 'UPDATE confirmations SET attempts = attempts + 1 WHERE token = ?',
+      args: [confirmation.token],
+    })
+    throw new Error('That code is not correct. Check your email and try again.')
+  }
+  return consumeConfirmation(confirmation.token, confirmation.user_id)
 }
 
 export async function consumeConfirmation(token, userId) {
@@ -205,6 +294,7 @@ export function serializeUser(user) {
     email: user.email,
     confirmed: Boolean(user.confirmed),
     onboarded: Boolean(user.onboarded),
+    isAdmin: Boolean(user.is_admin),
     interests: user.interests ? String(user.interests).split(',') : [],
     experience: user.experience,
     goals: user.goals,
@@ -218,6 +308,46 @@ export async function getCatalog() {
     resources: resourceResult.rows.map((row) => JSON.parse(String(row.payload))),
     paths: pathResult.rows.map((row) => JSON.parse(String(row.payload))),
   }
+}
+
+export async function upsertResources(items) {
+  if (!items.length) return []
+  await db.batch(
+    items.map((item) => ({
+      sql: `INSERT INTO catalog_resources (id, payload) VALUES (?, ?)
+            ON CONFLICT(id) DO UPDATE SET payload = excluded.payload`,
+      args: [item.id, JSON.stringify(item)],
+    })),
+    'write',
+  )
+  return items
+}
+
+export async function upsertPaths(items) {
+  if (!items.length) return []
+  await db.batch(
+    items.map((item) => ({
+      sql: `INSERT INTO catalog_paths (id, payload) VALUES (?, ?)
+            ON CONFLICT(id) DO UPDATE SET payload = excluded.payload`,
+      args: [item.id, JSON.stringify(item)],
+    })),
+    'write',
+  )
+  return items
+}
+
+export async function deleteResource(id) {
+  await db.execute({
+    sql: 'DELETE FROM catalog_resources WHERE id = ?',
+    args: [String(id)],
+  })
+}
+
+export async function deletePath(id) {
+  await db.execute({
+    sql: 'DELETE FROM catalog_paths WHERE id = ?',
+    args: [String(id)],
+  })
 }
 
 export async function getProgress(userId) {
@@ -287,6 +417,13 @@ async function seed() {
       demo.id,
     ],
   })
+
+  for (const email of adminEmails()) {
+    await db.execute({
+      sql: 'UPDATE users SET is_admin = 1 WHERE email = ?',
+      args: [email],
+    })
+  }
 
   const progress = await getProgress(demo.id)
   if (progress.bookmarks.length === 0) {

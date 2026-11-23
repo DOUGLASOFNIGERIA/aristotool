@@ -25,7 +25,7 @@ export default function Register({ onRegistered, onGoLogin }) {
         email: form.email,
         password: form.password,
       })
-      onRegistered({ email: form.email, token: data.confirmToken })
+      onRegistered({ email: form.email, devCode: data.devCode })
     } catch (err) {
       setError(err.message)
     } finally {
