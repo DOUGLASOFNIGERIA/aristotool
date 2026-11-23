@@ -52,12 +52,13 @@ Current catalog:
 ### Accounts and persistence
 
 - Registration with validation and duplicate-email checks.
-- Confirmation-code flow with resend support.
+- Emailed 6-digit confirmation-code flow with resend support.
 - Login and logout with database-backed sessions.
 - HttpOnly session cookie; session tokens are not stored in browser localStorage.
 - Three-step onboarding for interests, experience level, and learning goals.
 - Per-user bookmarks, completion status, and started status persisted in Turso/libSQL.
 - Seeded demo account with example progress.
+- Admin signup notification emails when SMTP is configured.
 
 ### Community discussion
 
@@ -116,7 +117,8 @@ aristotool/
 │   ├── pages/
 │   │   ├── About.jsx
 │   │   ├── Admin.jsx              # Admin catalog management workspace
-│   │   └── Stats.jsx              # Admin learner statistics dashboard
+│   │   ├── Community.jsx          # Signed-in discussion and screenshots
+│   │   ├── Stats.jsx              # Admin learner statistics dashboard
 │   │   ├── ConfirmEmail.jsx
 │   │   ├── Home.jsx
 │   │   ├── Learning.jsx
@@ -436,7 +438,6 @@ Currently implemented:
 
 Not yet implemented:
 
-- Email delivery and real confirmation links
 - Rate limiting on login, registration, resend, and confirmation
 - Password reset and email change flows
 - CSRF protection if cookie behavior is expanded
@@ -462,6 +463,8 @@ Use this after changes to confirm the core system still works:
 12. Attach a small PNG screenshot, open it from the post, then remove the post as its author.
 13. Confirm a second signed-in account cannot see an email in the feed and cannot delete another learner's post.
 14. Set `CHAT_RETENTION_DAYS=0`, restart the API, and confirm old posts and orphan screenshots are pruned.
+15. Sign in as an admin and open **Stats**; verify totals, the seven-day chart, and recent signups load.
+16. Register a test account and confirm the admin signup notification arrives when SMTP is configured.
 
 ## Troubleshooting
 
@@ -505,6 +508,8 @@ Restart the API. Catalog seeding happens at startup, not on every request.
 
 ## Production Deployment Notes
 
+Current production URL: https://aristool.vercel.app
+
 The current deployment uses Vercel Services with:
 
 - `frontend`: Vite build from `dist/`
@@ -519,25 +524,36 @@ TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 ```
 
+Optional but recommended:
+
+```text
+GMAIL_USER=your-address@gmail.com
+GMAIL_APP_PASSWORD=your-16-character-app-password
+FROM_EMAIL="Aristool <no-reply@aristotool.dev>"
+ADMIN_EMAILS=you@example.com
+ADMIN_NOTIFICATION_EMAIL=you@example.com
+CHAT_RETENTION_DAYS=30
+```
+
 Before changes to a deployed environment:
 
 1. Run `npm run build`.
-2. Set the two environment variables in every Vercel environment.
+2. Confirm the required variables are set in every Vercel environment.
 3. Deploy with `npx vercel deploy --prod` or connect the repository to Vercel for automatic deploys.
-4. Verify `/api/health`, `/api/catalog`, demo login, `/api/state`, and SPA routes.
+4. Verify `/api/health`, `/api/catalog`, demo login, `/api/state`, `/api/community/messages`, and SPA routes including `/community` and `/stats`.
 5. Keep database credentials out of source control and rotate them if exposed.
-6. Add an email provider and replace returned confirmation tokens with real links.
-7. Add rate limiting, monitoring, backups, and a secret-store rotation policy.
+6. Verify confirmation emails and the admin signup notification when SMTP is configured.
+7. Add persistent rate limiting, monitoring, backups, and a secret-store rotation policy.
 8. Review the educational content and external links on a release schedule.
 
 ## Roadmap
 
 Potential next improvements:
 
-- Email-based confirmation and password reset
+- Email-based password reset and change flows
 - Quiz or assessment component per learning path
 - Richer reporting and completion certificates
-- Admin content management interface
+- Persistent rate limiting, audit logging, and monitoring
 - Search index and saved filters
 - Multi-factor authentication
 - Container and self-hosted deployment templates
@@ -554,3 +570,4 @@ The repository history is organized into focused incremental commits:
 5. Navigation, profile menu, branding, and resource player polish
 6. Comprehensive project documentation
 7. Managed Turso/libSQL migration and Vercel deployment configuration
+8. Admin statistics, signup notifications, community chat, and catalog expansion
