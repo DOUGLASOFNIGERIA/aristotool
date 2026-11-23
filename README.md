@@ -32,9 +32,9 @@ The application is built as a React single-page app backed by a small Express AP
 
 Current catalog:
 
-- 38 resources: 7 videos, 19 notes, and 12 labs
-- 9 guided learning paths
-- 9 categories: Reconnaissance, Web Application, Network Security, Cryptography, Wireless, System Security, Digital Forensics, Bug Bounty, and Cloud Security
+- 51 resources: 9 videos, 25 notes, and 17 labs
+- 12 guided learning paths
+- 10 categories: Reconnaissance, Web Application, Network Security, Cryptography, Wireless, System Security, Digital Forensics, Bug Bounty, Cloud Security, and Programming
 - 3 difficulty levels: Beginner, Intermediate, and Advanced
 
 ## Features
@@ -46,6 +46,7 @@ Current catalog:
 - Search, category filtering, type filtering, difficulty filtering, and sorting.
 - Resource detail dialog with summary, learning outcomes, chapter or step breakdown, embedded video, and official resource link.
 - Guided learning path dialog with ordered resources and completion tracking.
+- Programming for Ethical Hackers track covering Python basics, Python projects, Bash scripting, and the Nmap Scripting Engine.
 - Personal dashboard with continue-learning, saved items, and progress summaries.
 - Dedicated Library, Videos, Notes, Labs, Learning, Community, and About pages.
 
@@ -73,7 +74,7 @@ Current catalog:
 - Verified YouTube video IDs gathered from saved search evidence rather than guessed.
 - Privacy-enhanced embeds using `youtube-nocookie.com`.
 - Watch links back to the original YouTube video.
-- Official external resource links from sources such as OWASP, MDN, PortSwigger, Cloudflare, Nmap, Microsoft Learn, GNU, NIST, HackerOne, Bugcrowd, and AWS.
+- Official external resource links from sources such as OWASP, MDN, PortSwigger, Cloudflare, Nmap, Microsoft Learn, GNU, NIST, HackerOne, Bugcrowd, AWS, Python Software Foundation, and GitHub Docs.
 - Resource and media metadata centralized in `src/data/resources.js`.
 
 ## Technology Stack
@@ -571,3 +572,4 @@ The repository history is organized into focused incremental commits:
 6. Comprehensive project documentation
 7. Managed Turso/libSQL migration and Vercel deployment configuration
 8. Admin statistics, signup notifications, community chat, and catalog expansion
+9. Programming track for ethical hackers: Python, Bash, NSE, and lab projects
