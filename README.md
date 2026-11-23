@@ -28,7 +28,7 @@ Repository: https://github.com/DOUGLASOFNIGERIA/aristotool
 
 ## Overview
 
-The application is built as a React single-page app backed by a small Express API and a local SQLite database. It is designed for structured, authorized security education: every lesson, note, and lab points to a verified external source, and video lessons are played through privacy-enhanced YouTube embeds.
+The application is built as a React single-page app backed by a small Express API and a managed Turso/libSQL database. It is designed for structured, authorized security education: every lesson, note, and lab points to a verified external source, and video lessons are played through privacy-enhanced YouTube embeds.
 
 Current catalog:
 
@@ -56,7 +56,7 @@ Current catalog:
 - Login and logout with database-backed sessions.
 - HttpOnly session cookie; session tokens are not stored in browser localStorage.
 - Three-step onboarding for interests, experience level, and learning goals.
-- Per-user bookmarks, completion status, and started status persisted in SQLite.
+- Per-user bookmarks, completion status, and started status persisted in Turso/libSQL.
 - Seeded demo account with example progress.
 
 ### Content and media
@@ -74,13 +74,13 @@ Current catalog:
 | Frontend | React 19, Vite 6 |
 | Styling | Custom CSS with Material Design tokens |
 | Backend | Express 4 |
-| Database | SQLite via Node.js built-in `node:sqlite` |
+| Database | Turso/libSQL via `@tursodatabase/serverless` |
 | Password hashing | `node:crypto` scrypt with per-user salt |
-| Session storage | SQLite-backed opaque tokens in an HttpOnly cookie |
+| Session storage | libSQL-backed opaque tokens in an HttpOnly cookie |
 | Dev orchestration | `concurrently` |
-| Runtime | Node.js 24+ recommended |
+| Runtime | Node.js 24.x |
 
-No external database service, email provider, or authentication vendor is required for local development.
+Local development requires a Turso/libSQL database URL and auth token. No email provider or authentication vendor is required.
 
 ## Project Structure
 
@@ -128,7 +128,7 @@ aristotool/
 - npm 10 or newer
 - A modern browser with iframe support for YouTube playback
 
-The backend uses the built-in `node:sqlite` module. Older Node.js releases may not provide the required API.
+The backend connects to Turso/libSQL through `@tursodatabase/serverless` and requires `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
 
 ## Installation
 
@@ -148,6 +148,22 @@ On Windows PowerShell, if `npm.ps1` is blocked by execution policy, invoke npm d
 
 ```powershell
 & "C:\Program Files\nodejs\npm.cmd" install
+```
+
+### Environment variables
+
+Set these before starting the API:
+
+```bash
+TURSO_DATABASE_URL=libsql://your-db-your-org.aws-us-east-1.turso.io
+TURSO_AUTH_TOKEN=your-token
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:TURSO_DATABASE_URL = "libsql://your-db-your-org.aws-us-east-1.turso.io"
+$env:TURSO_AUTH_TOKEN = "your-token"
 ```
 
 ## Running the Application
@@ -272,13 +288,14 @@ Supported `kind` values are `bookmarks`, `completed`, and `started`.
 
 ## Database
 
-The SQLite file is created automatically at:
+The API connects to the Turso/libSQL database configured by:
 
 ```text
-backend/data/aristotool.db
+TURSO_DATABASE_URL=libsql://aristotool-prod-cyberhawk.aws-us-east-1.turso.io
+TURSO_AUTH_TOKEN=...
 ```
 
-It is ignored by git because it contains runtime and user data.
+Vercel Production, Preview, and Development environments are configured with the same managed database. No local SQLite file is used at runtime.
 
 ### Tables
 
@@ -291,15 +308,9 @@ It is ignored by git because it contains runtime and user data.
 | `catalog_resources` | JSON payloads seeded from the source catalog |
 | `catalog_paths` | JSON payloads seeded from the learning path definitions |
 
-### Resetting local data
+### Resetting development data
 
-Stop the API, delete `backend/data/aristotool.db`, then restart the API. The catalog, demo account, and demo progress are recreated automatically.
-
-On Windows PowerShell:
-
-```powershell
-Remove-Item .\backend\data\aristotool.db
-```
+Data is stored remotely. Use a separate Turso database for development and point `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` at it. The API recreates the schema and upserts the catalog and demo account on startup; it does not delete existing remote rows.
 
 ## Content Model
 
@@ -318,7 +329,7 @@ A learning path includes:
 - `id`, `title`, `description`, `difficulty`
 - `resourceIds`, `accent`, `outcome`
 
-When the API starts, `seed()` upserts all resources and paths into SQLite. Editing the source catalog and restarting the API updates the database without manual SQL.
+When the API starts, `seed()` upserts all resources and paths into the configured libSQL database. Editing the source catalog and restarting the API updates the database without manual SQL.
 
 ## Frontend Architecture
 
@@ -333,28 +344,27 @@ When the API starts, `seed()` upserts all resources and paths into SQLite. Editi
 
 ## Security Notes
 
-This project is suitable for local development and learning, but it is not production-hardened by default.
+The deployed application uses managed hosting and a managed database, but it is not a complete production security program.
 
 Currently implemented:
 
 - Passwords are hashed with scrypt using a unique random salt.
 - Password comparison uses `timingSafeEqual`.
-- Session tokens are random 192-bit values stored in SQLite.
-- Session cookies are `HttpOnly`, `SameSite=Lax`, and scoped to `/`.
+- Session tokens are random 192-bit values stored in Turso/libSQL.
+- Session cookies are `HttpOnly`, `SameSite=Lax`, scoped to `/`, and marked `Secure` when served from Vercel.
+- Database credentials are stored as Vercel environment secrets, not in the repository.
 - User responses never include password hashes or session tokens.
 - Protected API routes validate the session on every request.
 - Educational content is framed around authorized use and systems you own.
 
-Not yet implemented and required before public deployment:
+Not yet implemented:
 
 - Email delivery and real confirmation links
-- HTTPS enforcement and secure cookies in production
 - Rate limiting on login, registration, resend, and confirmation
 - Password reset and email change flows
 - CSRF protection if cookie behavior is expanded
 - Account deletion and data export
 - Audit logging and monitoring
-- Managed database backups and secret management
 - Content security policy and dependency vulnerability monitoring
 
 ## Manual Verification Checklist
@@ -406,7 +416,7 @@ Stop the existing process or set a different API port with `PORT`. If you change
 - Confirm the API is running.
 - Confirm the browser accepted the `aristotool_session` cookie.
 - Check browser devtools for `/api/state` and `/api/progress` responses.
-- Delete and reseed the database only if local data is corrupt.
+- Verify `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` point to the intended database.
 
 ### Changes to catalog content do not appear
 
@@ -414,15 +424,29 @@ Restart the API. Catalog seeding happens at startup, not on every request.
 
 ## Production Deployment Notes
 
-A production deployment should use separate static hosting and API hosting or a reverse proxy:
+The current deployment uses Vercel Services with:
 
-1. Run `npm run build` and serve the generated `dist/` directory.
-2. Run the Express API with a process manager and a dedicated `PORT`.
-3. Configure the frontend API base URL or reverse proxy `/api` to the backend.
-4. Use HTTPS and set `Secure` on the session cookie behind TLS.
-5. Replace the local SQLite file with a managed database or a durable volume.
+- `frontend`: Vite build from `dist/`
+- `backend`: Express entrypoint `backend/server.js`
+- `/api/(.*)` rewritten to the backend service
+- all other paths rewritten to the SPA
+
+Required Vercel environment variables for Production, Preview, and Development:
+
+```text
+TURSO_DATABASE_URL=libsql://...
+TURSO_AUTH_TOKEN=...
+```
+
+Before changes to a deployed environment:
+
+1. Run `npm run build`.
+2. Set the two environment variables in every Vercel environment.
+3. Deploy with `npx vercel deploy --prod` or connect the repository to Vercel for automatic deploys.
+4. Verify `/api/health`, `/api/catalog`, demo login, `/api/state`, and SPA routes.
+5. Keep database credentials out of source control and rotate them if exposed.
 6. Add an email provider and replace returned confirmation tokens with real links.
-7. Add rate limiting, monitoring, backups, and a proper secret store.
+7. Add rate limiting, monitoring, backups, and a secret-store rotation policy.
 8. Review the educational content and external links on a release schedule.
 
 ## Roadmap
@@ -435,7 +459,7 @@ Potential next improvements:
 - Admin content management interface
 - Search index and saved filters
 - Multi-factor authentication
-- Deployment configuration for containers or managed platforms
+- Container and self-hosted deployment templates
 - Automated tests for API routes and critical UI flows
 
 ## Development History
@@ -448,3 +472,4 @@ The repository history is organized into focused incremental commits:
 4. Registration, confirmation, onboarding, and API-backed app state
 5. Navigation, profile menu, branding, and resource player polish
 6. Comprehensive project documentation
+7. Managed Turso/libSQL migration and Vercel deployment configuration
