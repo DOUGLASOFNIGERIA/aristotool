@@ -32,8 +32,8 @@ The application is built as a React single-page app backed by a small Express AP
 
 Current catalog:
 
-- 29 resources: 7 videos, 13 notes, and 9 labs
-- 7 guided learning paths
+- 38 resources: 7 videos, 19 notes, and 12 labs
+- 9 guided learning paths
 - 9 categories: Reconnaissance, Web Application, Network Security, Cryptography, Wireless, System Security, Digital Forensics, Bug Bounty, and Cloud Security
 - 3 difficulty levels: Beginner, Intermediate, and Advanced
 
@@ -47,7 +47,7 @@ Current catalog:
 - Resource detail dialog with summary, learning outcomes, chapter or step breakdown, embedded video, and official resource link.
 - Guided learning path dialog with ordered resources and completion tracking.
 - Personal dashboard with continue-learning, saved items, and progress summaries.
-- Dedicated Library, Videos, Notes, Labs, Learning, and About pages.
+- Dedicated Library, Videos, Notes, Labs, Learning, Community, and About pages.
 
 ### Accounts and persistence
 
@@ -58,6 +58,14 @@ Current catalog:
 - Three-step onboarding for interests, experience level, and learning goals.
 - Per-user bookmarks, completion status, and started status persisted in Turso/libSQL.
 - Seeded demo account with example progress.
+
+### Community discussion
+
+- Signed-in learner chat for networking, questions, and sharing wins.
+- Screenshot attachments for error reports, validated by MIME type and magic bytes.
+- Display names and initials only — email addresses are never included in chat payloads.
+- Per-message delete for authors and moderators, plus a 30-day retention window.
+- In-memory rate limits on posts and uploads, and private, no-sniff attachment responses.
 
 ### Content and media
 
@@ -108,6 +116,7 @@ aristotool/
 │   ├── pages/
 │   │   ├── About.jsx
 │   │   ├── Admin.jsx              # Admin catalog management workspace
+│   │   └── Stats.jsx              # Admin learner statistics dashboard
 │   │   ├── ConfirmEmail.jsx
 │   │   ├── Home.jsx
 │   │   ├── Learning.jsx
@@ -163,6 +172,8 @@ GMAIL_USER=your-address@gmail.com
 GMAIL_APP_PASSWORD=your-16-character-app-password
 FROM_EMAIL="Aristool <no-reply@aristotool.dev>"
 ADMIN_EMAILS=you@example.com
+ADMIN_NOTIFICATION_EMAIL=you@example.com
+CHAT_RETENTION_DAYS=30
 ```
 
 On Windows PowerShell:
@@ -174,6 +185,8 @@ $env:GMAIL_USER = "your-address@gmail.com"
 $env:GMAIL_APP_PASSWORD = "your-16-character-app-password"
 $env:FROM_EMAIL = "Aristool <no-reply@aristotool.dev>"
 $env:ADMIN_EMAILS = "you@example.com"
+$env:ADMIN_NOTIFICATION_EMAIL = "you@example.com"
+$env:CHAT_RETENTION_DAYS = "30"
 ```
 
 `GMAIL_USER` and `GMAIL_APP_PASSWORD` enable one-time-code emails during registration. `FROM_EMAIL` defaults to `Aristool <no-reply@aristotool.dev>`.
@@ -265,12 +278,18 @@ All routes return JSON. Cookie-based session authentication is used for protecte
 | `GET` | `/api/catalog` | No | Returns resources and learning paths with media metadata |
 | `GET` | `/api/state` | Yes | Returns the current user's progress |
 | `POST` | `/api/progress` | Yes | Sets a bookmark, completed, or started value |
+| `GET` | `/api/admin/stats` | Admin | Returns aggregated signup and learner activity statistics |
 | `GET` | `/api/admin/catalog` | Admin | Returns the full catalog for management |
 | `POST` | `/api/admin/resources` | Admin | Creates or updates one resource |
 | `POST` | `/api/admin/paths` | Admin | Creates or updates one learning path |
 | `POST` | `/api/admin/upload` | Admin | Upserts a JSON bundle of resources and paths |
 | `DELETE` | `/api/admin/resources/:id` | Admin | Deletes a resource |
 | `DELETE` | `/api/admin/paths/:id` | Admin | Deletes a learning path |
+| `GET` | `/api/community/messages` | Yes | Returns the latest community posts with viewer-safe fields |
+| `POST` | `/api/community/messages` | Yes | Creates a post, optionally linked to an uploaded screenshot |
+| `POST` | `/api/community/attachments` | Yes | Stores a validated image attachment (base64 data URL) |
+| `GET` | `/api/community/attachments/:id` | Yes | Streams a screenshot with private, no-sniff response headers |
+| `DELETE` | `/api/community/messages/:id` | Yes | Removes the caller's post, or any post for an admin |
 
 ### Example: login request
 
@@ -316,11 +335,15 @@ GMAIL_USER=your-address@gmail.com
 GMAIL_APP_PASSWORD=...
 FROM_EMAIL=Aristool <no-reply@aristotool.dev>
 ADMIN_EMAILS=you@example.com
+ADMIN_NOTIFICATION_EMAIL=douglasofnigeria@gmail.com
 ```
 
-`ADMIN_EMAILS` is optional but recommended. It accepts a comma-separated list of confirmed account emails; matching users are promoted to admins when the API starts.
+`ADMIN_EMAILS` is optional but recommended.
+ It accepts a comma-separated list of confirmed account emails; matching users are promoted to admins when the API starts.
 
 Verification codes are 6 digits, stored hashed in `confirmations`, expire after `OTP_TTL_MINUTES` (default `10`), and allow `OTP_MAX_ATTEMPTS` incorrect attempts (default `5`). `ALLOW_DEV_OTP=true` returns the code in API responses and displays it in the UI for local testing only; do not enable it in production.
+
+Community posts and screenshots are pruned after `CHAT_RETENTION_DAYS` (default `30`). Screenshot uploads are capped at 1.5 MB and limited to PNG, JPEG, WebP, and GIF formats.
 
 Vercel Production, Preview, and Development environments are configured with the same managed database. No local SQLite file is used at runtime.
 
@@ -334,6 +357,8 @@ Vercel Production, Preview, and Development environments are configured with the
 | `progress` | Per-user resource state with a unique user/resource/kind constraint |
 | `catalog_resources` | JSON payloads seeded from the source catalog |
 | `catalog_paths` | JSON payloads seeded from the learning path definitions |
+| `chat_messages` | Community posts with author display name, body, and optional attachment |
+| `chat_attachments` | Validated screenshot bytes stored as base64 with ownership metadata |
 
 ### Resetting development data
 
@@ -370,6 +395,12 @@ Admins can manage the live catalog from the **Admin** workspace in the app:
 
 The admin navigation item only appears for users whose account email is listed in `ADMIN_EMAILS`. All admin endpoints require both a valid session and the admin flag.
 
+### Learner statistics
+
+Admins also get a **Stats** page showing how many people are coming to the project: total signups, new accounts today/7 days/30 days, confirmed and onboarded accounts, active learners, completed resources, a seven-day signup chart, onboarding experience levels, and the five most recent signups. Counts exclude the seeded demo account and are aggregates only. The page reads `GET /api/admin/stats`, which requires an admin session.
+
+When email delivery is configured, each new registration also sends a signup alert (name, email, and signup time only — never passwords or OTP codes) to `ADMIN_NOTIFICATION_EMAIL`, which defaults to `douglasofnigeria@gmail.com`. Anonymous page visits are not tracked or emailed.
+
 ## Frontend Architecture
 
 - `src/main.jsx` mounts the React app.
@@ -377,6 +408,7 @@ The admin navigation item only appears for users whose account email is listed i
 - `src/api.js` centralizes all calls to `/api` and standardizes error handling.
 - `Layout.jsx` renders the persistent app shell, search bar, navigation rail, mobile bottom navigation, theme toggle, and profile menu.
 - `pages/Admin.jsx` provides the admin-only resource form, JSON upload, learning path editor, and catalog inventory.
+- `pages/Community.jsx` renders the signed-in chat feed, screenshot composer, and privacy guidance.
 - Auth pages are intentionally lightweight and share `AuthLayout.jsx`.
 - `ResourceDialog.jsx` renders the iframe player, source attribution, watch link, and authoritative resource link.
 - Progress changes update the UI optimistically and then persist through `/api/progress`.
@@ -396,6 +428,11 @@ Currently implemented:
 - User responses never include password hashes or session tokens.
 - Protected API routes validate the session on every request.
 - Educational content is framed around authorized use and systems you own.
+- API responses send `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a restrictive `Content-Security-Policy`.
+- Community payloads exclude emails, user IDs, and password data; authors are represented only by display name and initials.
+- Chat bodies are plain text and rendered by React without `dangerouslySetInnerHTML`.
+- Screenshot uploads are size-capped, type-checked against magic bytes, stored outside the public directory, served only to signed-in users, and returned with `nosniff` plus a restrictive CSP.
+- Community posts and uploads have in-memory rate limits; admins can remove any post.
 
 Not yet implemented:
 
@@ -405,7 +442,7 @@ Not yet implemented:
 - CSRF protection if cookie behavior is expanded
 - Account deletion and data export
 - Audit logging and monitoring
-- Content security policy and dependency vulnerability monitoring
+- Dependency vulnerability monitoring and a document-level CSP for the SPA shell
 
 ## Manual Verification Checklist
 
@@ -421,6 +458,10 @@ Use this after changes to confirm the core system still works:
 8. Log out and verify protected routes require sign-in again.
 9. Register a new account, confirm it, complete onboarding, and open the dashboard.
 10. Check light and dark themes plus desktop and mobile navigation.
+11. Open **Community**, post a message, and verify it appears without an email address.
+12. Attach a small PNG screenshot, open it from the post, then remove the post as its author.
+13. Confirm a second signed-in account cannot see an email in the feed and cannot delete another learner's post.
+14. Set `CHAT_RETENTION_DAYS=0`, restart the API, and confirm old posts and orphan screenshots are pruned.
 
 ## Troubleshooting
 

@@ -4,6 +4,7 @@ const gmailUser = process.env.GMAIL_USER
 const gmailAppPassword = process.env.GMAIL_APP_PASSWORD
 const fromEmail = process.env.FROM_EMAIL || 'Aristool <no-reply@aristotool.dev>'
 const otpTtlMinutes = Number(process.env.OTP_TTL_MINUTES) || 10
+const adminNotificationEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'douglasofnigeria@gmail.com'
 
 let transporter
 
@@ -42,4 +43,47 @@ export async function sendOtpEmail(email, code) {
     `,
   }
   await getTransporter().sendMail(message)
+}
+
+function escapeHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character],
+  )
+}
+
+export function adminNotificationRecipient() {
+  return adminNotificationEmail
+}
+
+export async function sendAdminSignupNotification({ name, email, createdAt }) {
+  const when = `${new Date(createdAt).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+  })} UTC`
+  const safeName = escapeHtml(name)
+  const safeEmail = escapeHtml(email)
+
+  return await getTransporter().sendMail({
+    from: fromEmail,
+    to: adminNotificationEmail,
+    subject: `New Aristool signup — ${name}`,
+    text: `A new account was created on Aristool.\n\nName: ${name}\nEmail: ${email}\nSigned up: ${when}\n\nNo password or verification code is included. Open the admin Stats page for the latest totals.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#172033">
+        <h2>New Aristool signup</h2>
+        <p>A new account was created:</p>
+        <p><strong>Name:</strong> ${safeName}<br><strong>Email:</strong> ${safeEmail}<br><strong>Signed up:</strong> ${when}</p>
+        <p>No password or verification code is included. Open the admin Stats page for the latest totals.</p>
+      </div>
+    `,
+  })
 }

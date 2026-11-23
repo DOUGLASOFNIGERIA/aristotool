@@ -7,15 +7,36 @@ import Home from './pages/Home.jsx'
 import Library from './pages/Library.jsx'
 import Learning from './pages/Learning.jsx'
 import About from './pages/About.jsx'
+import Community from './pages/Community.jsx'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import ConfirmEmail from './pages/ConfirmEmail.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Admin from './pages/Admin.jsx'
+import Stats from './pages/Stats.jsx'
 import { resources as seedResources, learningPaths as seedPaths } from './data/resources.js'
 import { api } from './api.js'
 
+const knownPages = [
+  'home',
+  'library',
+  'videos',
+  'notes',
+  'labs',
+  'learning',
+  'community',
+  'about',
+  'admin',
+  'stats',
+]
+
+function initialPage() {
+  const slug = window.location.pathname.replace(/^\/+|\/+$/g, '')
+  return knownPages.includes(slug) ? slug : 'home'
+}
+
 export default function App() {
+  const initial = initialPage()
   const [theme, setTheme] = useState(() => localStorage.getItem('aristotool-theme') || 'light')
   const [booting, setBooting] = useState(true)
   const [user, setUser] = useState(null)
@@ -25,10 +46,10 @@ export default function App() {
   const [devOtp, setDevOtp] = useState('')
   const [resources, setResources] = useState(seedResources)
   const [paths, setPaths] = useState(seedPaths)
-  const [page, setPage] = useState('home')
-  const [activeNav, setActiveNav] = useState('home')
+  const [page, setPage] = useState(typeByPage[initial] ? 'library' : initial)
+  const [activeNav, setActiveNav] = useState(initial)
   const [query, setQuery] = useState('')
-  const [selectedType, setSelectedType] = useState('all')
+  const [selectedType, setSelectedType] = useState(typeByPage[initial] || 'all')
   const [category, setCategory] = useState('all')
   const [bookmarks, setBookmarks] = useState(new Set())
   const [completed, setCompleted] = useState(new Set())
@@ -333,6 +354,7 @@ export default function App() {
         />
       )}
       {page === 'about' && <About navigate={navigate} />}
+      {page === 'community' && <Community onNotify={setSnack} />}
       {page === 'admin' && user.isAdmin && (
         <Admin
           resources={resources}
@@ -344,6 +366,7 @@ export default function App() {
           onNotify={setSnack}
         />
       )}
+      {page === 'stats' && user.isAdmin && <Stats onNotify={setSnack} />}
 
       {selectedResource && (
         <ResourceDialog

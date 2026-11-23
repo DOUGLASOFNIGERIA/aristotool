@@ -36,6 +36,7 @@ export const api = {
   catalog: () => request('/catalog'),
   state: () => request('/state'),
   setProgress: (payload) => request('/progress', { method: 'POST', body: JSON.stringify(payload) }),
+  adminStats: () => request('/admin/stats'),
   adminCatalog: () => request('/admin/catalog'),
   adminSaveResource: (payload) =>
     request('/admin/resources', { method: 'POST', body: JSON.stringify(payload) }),
@@ -46,4 +47,12 @@ export const api = {
   adminDeleteResource: (id) =>
     request(`/admin/resources/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   adminDeletePath: (id) => request(`/admin/paths/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  communityMessages: () => request('/community/messages'),
+  postCommunityMessage: (payload) =>
+    request('/community/messages', { method: 'POST', body: JSON.stringify(payload) }),
+  uploadCommunityAttachment: (data) =>
+    request('/community/attachments', { method: 'POST', body: JSON.stringify({ data }) }),
+  deleteCommunityMessage: (id) =>
+    request(`/community/messages/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  attachmentUrl: (id) => `${base}/community/attachments/${encodeURIComponent(id)}`,
 }

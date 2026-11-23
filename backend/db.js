@@ -25,8 +25,14 @@ function positiveNumber(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+function nonNegativeNumber(value, fallback) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+}
+
 const otpTtlMinutes = positiveNumber(process.env.OTP_TTL_MINUTES, 10)
 const otpMaxAttempts = positiveNumber(process.env.OTP_MAX_ATTEMPTS, 5)
+const chatRetentionDays = nonNegativeNumber(process.env.CHAT_RETENTION_DAYS, 30)
 
 function generateOtp() {
   return String(randomInt(0, 1000000)).padStart(6, '0')
@@ -80,6 +86,23 @@ export async function initDb() {
         id TEXT PRIMARY KEY,
         payload TEXT NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        author_name TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        attachment_id TEXT
+      )`,
+      `CREATE TABLE IF NOT EXISTS chat_attachments (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content_type TEXT NOT NULL,
+        data TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_chat_attachments_user ON chat_attachments(user_id)',
     ],
     'write',
   )
@@ -286,6 +309,127 @@ export async function saveOnboarding(userId, { interests, experience, goals }) {
   return findUserById(userId)
 }
 
+export async function getAdminStats() {
+  const now = new Date()
+  const dayMs = 24 * 60 * 60 * 1000
+  const startOfUtcDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const daysAgo = (days) => new Date(startOfUtcDay - days * dayMs).toISOString()
+  const demoEmail = 'demo@aristotool.dev'
+
+  async function count(sql, args = []) {
+    const { rows } = await db.execute({ sql, args })
+    return Number(rows[0]?.value || 0)
+  }
+
+  const [
+    totalSignups,
+    signupsToday,
+    signups7d,
+    signups30d,
+    confirmed,
+    onboarded,
+    activeLearners,
+    started,
+    completed,
+  ] = await Promise.all([
+    count('SELECT COUNT(*) AS value FROM users WHERE email <> ?', [demoEmail]),
+    count('SELECT COUNT(*) AS value FROM users WHERE email <> ? AND created_at >= ?', [
+      demoEmail,
+      daysAgo(0),
+    ]),
+    count('SELECT COUNT(*) AS value FROM users WHERE email <> ? AND created_at >= ?', [
+      demoEmail,
+      daysAgo(6),
+    ]),
+    count('SELECT COUNT(*) AS value FROM users WHERE email <> ? AND created_at >= ?', [
+      demoEmail,
+      daysAgo(29),
+    ]),
+    count('SELECT COUNT(*) AS value FROM users WHERE email <> ? AND confirmed = 1', [demoEmail]),
+    count('SELECT COUNT(*) AS value FROM users WHERE email <> ? AND onboarded = 1', [demoEmail]),
+    count(
+      `SELECT COUNT(DISTINCT p.user_id) AS value
+       FROM progress p JOIN users u ON u.id = p.user_id
+       WHERE p.value = 1 AND u.email <> ?`,
+      [demoEmail],
+    ),
+    count(
+      `SELECT COUNT(*) AS value
+       FROM progress p JOIN users u ON u.id = p.user_id
+       WHERE p.kind = 'started' AND p.value = 1 AND u.email <> ?`,
+      [demoEmail],
+    ),
+    count(
+      `SELECT COUNT(*) AS value
+       FROM progress p JOIN users u ON u.id = p.user_id
+       WHERE p.kind = 'completed' AND p.value = 1 AND u.email <> ?`,
+      [demoEmail],
+    ),
+  ])
+
+  const dailyRows = await db.execute({
+    sql: `SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS value
+          FROM users
+          WHERE email <> ? AND created_at >= ?
+          GROUP BY day ORDER BY day`,
+    args: [demoEmail, daysAgo(6)],
+  })
+  const dailyCounts = new Map(
+    dailyRows.rows.map((row) => [String(row.day), Number(row.value || 0)]),
+  )
+  const daily = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(startOfUtcDay - (6 - index) * dayMs)
+    const day = date.toISOString().slice(0, 10)
+    return {
+      day,
+      label: date.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+      signups: dailyCounts.get(day) || 0,
+    }
+  })
+
+  const experienceRows = await db.execute({
+    sql: `SELECT experience, COUNT(*) AS value
+          FROM users
+          WHERE email <> ? AND onboarded = 1 AND experience <> ''
+          GROUP BY experience ORDER BY value DESC`,
+    args: [demoEmail],
+  })
+  const experience = experienceRows.rows.map((row) => ({
+    level: String(row.experience),
+    count: Number(row.value || 0),
+  }))
+
+  const recentRows = await db.execute({
+    sql: `SELECT name, email, created_at, confirmed, onboarded
+          FROM users WHERE email <> ?
+          ORDER BY created_at DESC LIMIT 5`,
+    args: [demoEmail],
+  })
+  const recentSignups = recentRows.rows.map((row) => ({
+    name: String(row.name),
+    email: String(row.email),
+    createdAt: String(row.created_at),
+    confirmed: Boolean(row.confirmed),
+    onboarded: Boolean(row.onboarded),
+  }))
+
+  return {
+    totalSignups,
+    signupsToday,
+    signups7d,
+    signups30d,
+    confirmed,
+    onboarded,
+    activeLearners,
+    started,
+    completed,
+    daily,
+    experience,
+    recentSignups,
+    generatedAt: now.toISOString(),
+  }
+}
+
 export function serializeUser(user) {
   if (!user) return null
   return {
@@ -373,6 +517,142 @@ export async function setProgress(userId, resourceId, kind, value) {
           DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
     args: [userId, resourceId, kind, value ? 1 : 0, new Date().toISOString()],
   })
+}
+
+export function safeDisplayName(name) {
+  return String(name || 'Learner')
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40) || 'Learner'
+}
+
+function initialsFor(name) {
+  return (
+    String(name)
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join('') || '?'
+  )
+}
+
+function serializeChatMessage(row, viewerId, isAdmin) {
+  const own = String(row.user_id) === String(viewerId)
+  return {
+    id: String(row.id),
+    body: String(row.body),
+    createdAt: String(row.created_at),
+    authorName: String(row.author_name),
+    authorInitials: initialsFor(row.author_name),
+    own,
+    canDelete: own || isAdmin,
+    attachment: row.attachment_id
+      ? { id: String(row.attachment_id), contentType: String(row.attachment_content_type || '') }
+      : null,
+  }
+}
+
+export async function listChatMessages(viewerId, isAdmin, limit = 100) {
+  const { rows } = await db.execute({
+    sql: `SELECT m.id, m.user_id, m.author_name, m.body, m.created_at,
+                 m.attachment_id, a.content_type AS attachment_content_type
+          FROM chat_messages m
+          LEFT JOIN chat_attachments a ON a.id = m.attachment_id
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT ?`,
+    args: [Math.min(Math.max(Number(limit) || 100, 1), 100)],
+  })
+  return rows
+    .reverse()
+    .map((row) => serializeChatMessage(row, viewerId, isAdmin))
+}
+
+export async function createChatAttachment({ userId, contentType, data }) {
+  const id = `att_${createToken()}`
+  await db.execute({
+    sql: `INSERT INTO chat_attachments (id, user_id, content_type, data, created_at)
+          VALUES (?, ?, ?, ?, ?)`,
+    args: [id, userId, contentType, data, new Date().toISOString()],
+  })
+  return { id, contentType }
+}
+
+export async function findChatAttachment(id) {
+  if (!id) return null
+  const { rows } = await db.execute({
+    sql: 'SELECT * FROM chat_attachments WHERE id = ?',
+    args: [String(id)],
+  })
+  return rows[0] || null
+}
+
+export async function findOwnedUnusedAttachment(id, userId) {
+  if (!id) return null
+  const { rows } = await db.execute({
+    sql: `SELECT a.* FROM chat_attachments a
+          LEFT JOIN chat_messages m ON m.attachment_id = a.id
+          WHERE a.id = ? AND a.user_id = ? AND m.id IS NULL`,
+    args: [String(id), userId],
+  })
+  return rows[0] || null
+}
+
+export async function pruneUnusedAttachments(userId) {
+  const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  await db.execute({
+    sql: `DELETE FROM chat_attachments
+          WHERE user_id = ? AND created_at < ?
+            AND id NOT IN (SELECT attachment_id FROM chat_messages WHERE attachment_id IS NOT NULL)`,
+    args: [userId, cutoff],
+  })
+}
+
+export async function createChatMessage({ userId, authorName, body, attachmentId }) {
+  const id = `msg_${createToken()}`
+  await db.execute({
+    sql: `INSERT INTO chat_messages (id, user_id, author_name, body, created_at, attachment_id)
+          VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [id, userId, authorName, body, new Date().toISOString(), attachmentId || null],
+  })
+  const { rows } = await db.execute({
+    sql: `SELECT m.id, m.user_id, m.author_name, m.body, m.created_at,
+                 m.attachment_id, a.content_type AS attachment_content_type
+          FROM chat_messages m
+          LEFT JOIN chat_attachments a ON a.id = m.attachment_id
+          WHERE m.id = ?`,
+    args: [id],
+  })
+  const message = rows[0] ? serializeChatMessage(rows[0], userId, false) : null
+  const cutoff = new Date(Date.now() - chatRetentionDays * 24 * 60 * 60 * 1000).toISOString()
+  await db.batch(
+    [
+      { sql: 'DELETE FROM chat_messages WHERE created_at < ?', args: [cutoff] },
+      { sql: 'DELETE FROM chat_attachments WHERE created_at < ?', args: [cutoff] },
+    ],
+    'write',
+  )
+  return message
+}
+
+export async function deleteChatMessage(id, viewerId, isAdmin) {
+  const { rows } = await db.execute({
+    sql: 'SELECT user_id, attachment_id FROM chat_messages WHERE id = ?',
+    args: [String(id)],
+  })
+  const message = rows[0]
+  if (!message) return 'missing'
+  if (!isAdmin && String(message.user_id) !== String(viewerId)) return 'forbidden'
+  await db.batch(
+    [
+      { sql: 'DELETE FROM chat_messages WHERE id = ?', args: [String(id)] },
+      { sql: 'DELETE FROM chat_attachments WHERE id = ?', args: [message.attachment_id || ''] },
+    ],
+    'write',
+  )
+  return 'ok'
 }
 
 async function seed() {

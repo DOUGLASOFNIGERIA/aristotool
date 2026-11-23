@@ -8,11 +8,12 @@ const railItems = [
   { id: 'notes', label: 'Notes', icon: 'article' },
   { id: 'labs', label: 'Labs', icon: 'science' },
   { id: 'learning', label: 'Learning', icon: 'school' },
+  { id: 'community', label: 'Community', icon: 'forum' },
   { id: 'about', label: 'About', icon: 'info' },
 ]
 
 const bottomItems = railItems.filter((item) =>
-  ['home', 'library', 'videos', 'labs', 'learning'].includes(item.id),
+  ['home', 'library', 'videos', 'labs', 'learning', 'community'].includes(item.id),
 )
 
 const typeByPage = {
@@ -37,7 +38,11 @@ export default function Layout({
   const [menuOpen, setMenuOpen] = useState(false)
   const currentNav = activeNav || page
   const visibleRailItems = user?.isAdmin
-    ? [...railItems, { id: 'admin', label: 'Admin', icon: 'bolt' }]
+    ? [
+        ...railItems,
+        { id: 'admin', label: 'Admin', icon: 'bolt' },
+        { id: 'stats', label: 'Stats', icon: 'group' },
+      ]
     : railItems
   const initials = String(user?.name || 'Learner')
     .split(' ')
@@ -159,6 +164,18 @@ export default function Layout({
                   <Icon name="bolt" /> Admin workspace
                 </button>
               )}
+              {user?.isAdmin && (
+                <button
+                  className="menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    navigate('stats')
+                  }}
+                >
+                  <Icon name="group" /> Learner statistics
+                </button>
+              )}
               <button
                 className="menu-item"
                 role="menuitem"
@@ -168,6 +185,16 @@ export default function Layout({
                 }}
               >
                 <Icon name="school" /> My learning
+              </button>
+              <button
+                className="menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  navigate('community')
+                }}
+              >
+                <Icon name="forum" /> Community chat
               </button>
               <button
                 className="menu-item"

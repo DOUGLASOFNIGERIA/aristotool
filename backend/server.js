@@ -2,17 +2,26 @@ import express from 'express'
 import {
   findConfirmation,
   consumeConfirmation,
+  createChatAttachment,
+  createChatMessage,
   createConfirmation,
   createSession,
   createUser,
+  deleteChatMessage,
   deleteSession,
+  findChatAttachment,
+  findOwnedUnusedAttachment,
   findUserByEmail,
   findUserBySession,
+  getAdminStats,
   getCatalog,
   getProgress,
   hasRecentConfirmation,
   deletePath,
   deleteResource,
+  listChatMessages,
+  pruneUnusedAttachments,
+  safeDisplayName,
   saveOnboarding,
   serializeUser,
   setProgress,
@@ -22,13 +31,90 @@ import {
   verifyPassword,
 } from './db.js'
 import { normalizePath, normalizeResource, normalizeUpload } from './catalog.js'
-import { isEmailConfigured, sendOtpEmail } from './mailer.js'
+import {
+  adminNotificationRecipient,
+  isEmailConfigured,
+  sendAdminSignupNotification,
+  sendOtpEmail,
+} from './mailer.js'
 import { getMedia } from '../src/data/resources.js'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
 
+const MAX_CHAT_BODY = 2000
+const MAX_ATTACHMENT_BYTES = 1_500_000
+const allowedImageTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+const rateBuckets = new Map()
+
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'no-referrer')
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+  next()
+})
+
 app.use(express.json({ limit: '5mb' }))
+
+function allowRate(key, max, windowMs) {
+  const now = Date.now()
+  if (rateBuckets.size > 5000) {
+    for (const [bucketKey, bucket] of rateBuckets) {
+      if (now - bucket.start >= windowMs) rateBuckets.delete(bucketKey)
+    }
+  }
+  const bucket = rateBuckets.get(key)
+  if (!bucket || now - bucket.start >= windowMs) {
+    rateBuckets.set(key, { start: now, count: 1 })
+    return true
+  }
+  if (bucket.count >= max) return false
+  bucket.count += 1
+  return true
+}
+
+function decodeImage(payload) {
+  let value = String(payload || '').trim()
+  let contentType = ''
+  const dataUrl = value.match(/^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,([\s\S]*)$/)
+  if (dataUrl) {
+    contentType = dataUrl[1].toLowerCase()
+    value = dataUrl[2].trim()
+  }
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value) || value.length % 4 !== 0) {
+    throw fail(400, 'That screenshot is not a valid image file.')
+  }
+  const buffer = Buffer.from(value, 'base64')
+  if (!buffer.length || buffer.toString('base64') !== value) {
+    throw fail(400, 'That screenshot is not a valid image file.')
+  }
+  if (!allowedImageTypes.has(contentType)) {
+    throw fail(400, 'Use a PNG, JPEG, WebP or GIF screenshot.')
+  }
+  const signatures = {
+    'image/png': (bytes) =>
+      bytes.length >= 8 &&
+      bytes[0] === 0x89 &&
+      bytes.toString('ascii', 1, 4) === 'PNG' &&
+      bytes[4] === 0x0d &&
+      bytes[5] === 0x0a &&
+      bytes[6] === 0x1a &&
+      bytes[7] === 0x0a,
+    'image/jpeg': (bytes) => bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+    'image/gif': (bytes) => bytes.length >= 6 && ['GIF87a', 'GIF89a'].includes(bytes.toString('ascii', 0, 6)),
+    'image/webp': (bytes) =>
+      bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP',
+  }
+  if (!signatures[contentType](buffer)) {
+    throw fail(400, 'The screenshot contents do not match its image type.')
+  }
+  if (buffer.length > MAX_ATTACHMENT_BYTES) {
+    throw fail(400, 'Screenshots must be smaller than 1.5 MB.')
+  }
+  return { contentType, data: buffer.toString('base64'), buffer }
+}
 
 function asyncHandler(handler) {
   return (req, res, next) => {
@@ -135,6 +221,11 @@ app.post(
     const user = await createUser({ name, email, password })
     const { code } = await createConfirmation(user.id)
     await deliverOtp(email, code)
+    try {
+      await sendAdminSignupNotification({ name, email, createdAt: user.created_at })
+    } catch (notificationError) {
+      console.error(`Admin signup notification to ${adminNotificationRecipient()} failed:`, notificationError.message)
+    }
     res.status(201).json({
       user: serializeUser(user),
       message: 'Account created. We sent a 6-digit verification code to your email.',
@@ -285,6 +376,15 @@ app.post(
 )
 
 app.get(
+  '/api/admin/stats',
+  asyncHandler(requireAuth),
+  asyncHandler(requireAdmin),
+  asyncHandler(async (_req, res) => {
+    res.json(await getAdminStats())
+  }),
+)
+
+app.get(
   '/api/admin/catalog',
   asyncHandler(requireAuth),
   asyncHandler(requireAdmin),
@@ -348,6 +448,100 @@ app.delete(
   asyncHandler(async (req, res) => {
     await deletePath(req.params.id)
     res.json({ ok: true, catalog: publicCatalog(await getCatalog()) })
+  }),
+)
+
+app.get(
+  '/api/community/messages',
+  asyncHandler(requireAuth),
+  asyncHandler(async (req, res) => {
+    const messages = await listChatMessages(req.user.id, Boolean(req.user.is_admin), req.query.limit)
+    res.json({ messages })
+  }),
+)
+
+app.post(
+  '/api/community/messages',
+  asyncHandler(requireAuth),
+  asyncHandler(async (req, res) => {
+    if (!allowRate(`message:${req.user.id}`, 12, 30_000)) {
+      return res.status(429).json({ error: 'You are posting too quickly. Take a breath and try again shortly.' })
+    }
+    const body = String(req.body?.body || '')
+      .replace(/[\u0000-\u001f\u007f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    const attachmentId = String(req.body?.attachmentId || '').trim()
+    if (body.length > MAX_CHAT_BODY) {
+      return res.status(400).json({ error: `Keep messages under ${MAX_CHAT_BODY} characters.` })
+    }
+    if (!body && !attachmentId) {
+      return res.status(400).json({ error: 'Write a message or attach a screenshot.' })
+    }
+
+    let attachment = null
+    if (attachmentId) {
+      attachment = await findOwnedUnusedAttachment(attachmentId, req.user.id)
+      if (!attachment) {
+        return res.status(400).json({ error: 'That screenshot is no longer available. Please upload it again.' })
+      }
+    }
+
+    const message = await createChatMessage({
+      userId: req.user.id,
+      authorName: safeDisplayName(req.user.name),
+      body,
+      attachmentId: attachment?.id || null,
+    })
+    if (!message) return res.status(500).json({ error: 'The message could not be saved.' })
+    res.status(201).json({ message })
+  }),
+)
+
+app.post(
+  '/api/community/attachments',
+  asyncHandler(requireAuth),
+  asyncHandler(async (req, res) => {
+    if (!allowRate(`attachment:${req.user.id}`, 8, 60_000)) {
+      return res.status(429).json({ error: 'Too many screenshots at once. Please wait a moment.' })
+    }
+    const image = decodeImage(req.body?.data)
+    await pruneUnusedAttachments(req.user.id)
+    const attachment = await createChatAttachment({
+      userId: req.user.id,
+      contentType: image.contentType,
+      data: image.data,
+    })
+    res.status(201).json({
+      attachment: { id: attachment.id, contentType: image.contentType, size: image.buffer.length },
+    })
+  }),
+)
+
+app.get(
+  '/api/community/attachments/:id',
+  asyncHandler(requireAuth),
+  asyncHandler(async (req, res) => {
+    const attachment = await findChatAttachment(req.params.id)
+    if (!attachment) return res.status(404).end()
+    res.setHeader('Content-Type', String(attachment.content_type))
+    res.setHeader('Content-Disposition', 'inline; filename="screenshot"')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
+    res.setHeader('Cache-Control', 'private, max-age=3600')
+    res.setHeader('Referrer-Policy', 'no-referrer')
+    res.send(Buffer.from(String(attachment.data), 'base64'))
+  }),
+)
+
+app.delete(
+  '/api/community/messages/:id',
+  asyncHandler(requireAuth),
+  asyncHandler(async (req, res) => {
+    const result = await deleteChatMessage(req.params.id, req.user.id, Boolean(req.user.is_admin))
+    if (result === 'missing') return res.status(404).json({ error: 'That message has already been removed.' })
+    if (result === 'forbidden') return res.status(403).json({ error: 'You can only remove your own messages.' })
+    res.json({ ok: true })
   }),
 )
 
