@@ -132,7 +132,7 @@ export default function Community({ onNotify }) {
     <div className="page community-page">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Community</p>
+          <p className="eyebrow">Chat</p>
           <h1>Learn out loud, together.</h1>
           <p className="lead">
             Ask questions, share a breakthrough, or drop a screenshot of the error that has you stuck.
@@ -145,10 +145,10 @@ export default function Community({ onNotify }) {
       </div>
 
       <div className="community-grid">
-        <section className="card community-feed" aria-label="Community conversation">
+        <section className="card community-feed" aria-label="Learner chat">
           <div className="community-feed-head">
             <div>
-              <h2>Open discussion</h2>
+              <h2>Open chat</h2>
               <p className="muted">A shared space for learners working through the same material.</p>
             </div>
             <span className="chip dot" style={{ color: 'var(--primary)' }}>

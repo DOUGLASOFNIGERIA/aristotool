@@ -38,6 +38,9 @@ export default function Home({
             <button className="button on-dark" onClick={() => navigate('library')}>
               Explore resources <Icon name="arrowForward" />
             </button>
+            <button className="button on-dark ghost" onClick={() => navigate('community')}>
+              <Icon name="forum" /> Chat with learners
+            </button>
             <button className="button on-dark ghost" onClick={() => onOpenPath(paths[0])}>
               <Icon name="school" /> Start a learning path
             </button>

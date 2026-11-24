@@ -42,13 +42,13 @@ Current catalog:
 ### Learning experience
 
 - Material Design-inspired responsive UI with light and dark themes.
-- Desktop navigation rail and mobile bottom navigation with consistent active states.
+- Compact desktop top navigation and a four-item mobile bottom bar with a More menu for secondary pages.
 - Search, category filtering, type filtering, difficulty filtering, and sorting.
 - Resource detail dialog with summary, learning outcomes, chapter or step breakdown, embedded video, and official resource link.
 - Guided learning path dialog with ordered resources and completion tracking.
 - Programming for Ethical Hackers track covering Python basics, Python projects, Bash scripting, and the Nmap Scripting Engine.
 - Personal dashboard with continue-learning, saved items, and progress summaries.
-- Dedicated Library, Videos, Notes, Labs, Learning, Downloads, Community, and About pages.
+- Dedicated Explore, Videos, Notes, Labs, Learning, Downloads, Chat, and About pages.
 
 ### Downloads and offline access
 
@@ -72,7 +72,7 @@ Current catalog:
 - Seeded demo account with example progress.
 - Admin signup notification emails when SMTP is configured.
 
-### Community discussion
+### Learner chat
 
 - Signed-in learner chat for networking, questions, and sharing wins.
 - Screenshot attachments for error reports, validated by MIME type and magic bytes.
@@ -423,7 +423,7 @@ When email delivery is configured, each new registration also sends a signup ale
 - `src/main.jsx` mounts the React app.
 - `src/App.jsx` owns bootstrapping, auth routing, catalog loading, progress state, dialog state, navigation, theme, and notifications.
 - `src/api.js` centralizes all calls to `/api` and standardizes error handling.
-- `Layout.jsx` renders the persistent app shell, search bar, navigation rail, mobile bottom navigation, theme toggle, and profile menu.
+- `Layout.jsx` renders the persistent app shell, search bar, desktop top navigation, four-item mobile bottom navigation, More menu, theme toggle, and profile menu.
 - `pages/Admin.jsx` provides the admin-only resource form, JSON upload, learning path editor, and catalog inventory.
 - `pages/Community.jsx` renders the signed-in chat feed, screenshot composer, and privacy guidance.
 - Auth pages are intentionally lightweight and share `AuthLayout.jsx`.
@@ -473,8 +473,8 @@ Use this after changes to confirm the core system still works:
 7. Bookmark and complete a resource, reload the page, and verify persistence.
 8. Log out and verify protected routes require sign-in again.
 9. Register a new account, confirm it, complete onboarding, and open the dashboard.
-10. Check light and dark themes plus desktop and mobile navigation.
-11. Open **Community**, post a message, and verify it appears without an email address.
+10. Check light and dark themes plus desktop navigation, the four-item mobile bottom bar, and the More menu.
+11. Open **Chat** from the top bar, bottom bar, or home page, post a message, and verify it appears without an email address.
 12. Attach a small PNG screenshot, open it from the post, then remove the post as its author.
 13. Confirm a second signed-in account cannot see an email in the feed and cannot delete another learner's post.
 14. Set `CHAT_RETENTION_DAYS=0`, restart the API, and confirm old posts and orphan screenshots are pruned.

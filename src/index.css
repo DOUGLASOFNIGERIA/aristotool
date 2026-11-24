@@ -28,7 +28,6 @@
   --elev1: 0 1px 2px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.07);
   --elev2: 0 2px 6px 2px rgba(0, 0, 0, 0.09), 0 1px 2px rgba(0, 0, 0, 0.08);
   --elev3: 0 6px 18px 4px rgba(0, 0, 0, 0.11), 0 2px 6px rgba(0, 0, 0, 0.06);
-  --rail-width: 88px;
   --bar-height: 68px;
 }
 
@@ -107,13 +106,13 @@ a {
   position: fixed;
   z-index: 40;
   top: 0;
-  left: var(--rail-width);
+  left: 0;
   right: 0;
   height: var(--bar-height);
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 28px;
+  gap: 14px;
+  padding: 0 22px;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--outline-variant);
@@ -123,7 +122,7 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 190px;
+  min-width: 160px;
   color: var(--on-surface);
   text-decoration: none;
 }
@@ -153,7 +152,7 @@ a {
 
 .search-box {
   flex: 1;
-  max-width: 520px;
+  max-width: 380px;
   height: 44px;
   display: flex;
   align-items: center;
@@ -193,6 +192,109 @@ a {
   color: var(--on-surface-variant);
 }
 
+.desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 22px;
+  background: var(--surface-container-high);
+}
+
+.desktop-nav button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--on-surface-variant);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+}
+
+.desktop-nav button:hover {
+  background: var(--surface);
+  color: var(--on-surface);
+}
+
+.desktop-nav button.active {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-weight: 700;
+}
+
+.desktop-nav button.chat-nav {
+  background: var(--primary);
+  color: var(--on-primary);
+  padding: 0 17px;
+  box-shadow: var(--elev1);
+}
+
+.desktop-nav button.chat-nav:hover,
+.desktop-nav button.chat-nav.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: var(--elev2);
+}
+
+.overflow-wrap {
+  position: relative;
+}
+
+.overflow-button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--on-surface-variant);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.overflow-button:hover {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+}
+
+.overflow-button span {
+  display: none;
+}
+
+.overflow-menu {
+  position: absolute;
+  z-index: 80;
+  top: 50px;
+  right: 0;
+  width: 230px;
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  border-radius: 18px;
+  box-shadow: var(--elev3);
+  padding: 10px;
+  animation: fadeUp 0.18s ease both;
+}
+
+.overflow-menu .menu-item.active {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  font-weight: 700;
+}
+
+.overflow-menu .menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bar-spacer {
   flex: 1;
 }
@@ -228,66 +330,7 @@ a {
   border: 0;
 }
 
-.nav-rail {
-  position: fixed;
-  z-index: 45;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: var(--rail-width);
-  background: var(--surface-container-low);
-  border-right: 1px solid var(--outline-variant);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 14px 0 18px;
-  gap: 6px;
-}
-
-.rail-logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--primary);
-  color: var(--on-primary);
-  display: grid;
-  place-items: center;
-  margin-bottom: 18px;
-}
-
-.rail-item {
-  width: 72px;
-  min-height: 64px;
-  border: 0;
-  background: transparent;
-  color: var(--on-surface-variant);
-  border-radius: 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-size: 11px;
-  line-height: 1.1;
-  transition: background 0.18s, color 0.18s;
-}
-
-.rail-item:hover {
-  background: var(--surface-container-high);
-}
-
-.rail-item.active {
-  background: var(--secondary-container);
-  color: var(--on-secondary-container);
-  font-weight: 700;
-}
-
-.rail-spacer {
-  flex: 1;
-}
-
 .main-area {
-  margin-left: var(--rail-width);
   padding-top: var(--bar-height);
   min-height: 100vh;
 }
@@ -1253,35 +1296,54 @@ h3 {
   display: none;
 }
 
-@media (max-width: 900px) {
-  :root {
-    --rail-width: 0px;
-  }
-
-  .nav-rail {
-    display: none;
-  }
-
-  .top-app-bar {
-    left: 0;
-    padding: 0 16px;
-    gap: 10px;
-  }
-
+@media (max-width: 1180px) {
   .brand {
     min-width: auto;
   }
 
-  .brand-name {
-    display: none;
-  }
-
+  .brand-name,
   .search-hint {
     display: none;
   }
 
-  .main-area {
-    margin-left: 0;
+  .desktop-nav button {
+    padding: 0 11px;
+  }
+
+  .desktop-nav button span:not(.chat-label) {
+    display: none;
+  }
+
+  .desktop-nav button.chat-nav {
+    padding: 0 16px;
+  }
+
+  .search-box {
+    max-width: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .top-app-bar {
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .desktop-nav,
+  .desktop-action {
+    display: none;
+  }
+
+  .overflow-button span {
+    display: inline;
+  }
+
+  .overflow-menu {
+    right: -6px;
+  }
+
+  .search-box {
+    height: 42px;
   }
 
   .page {
@@ -1335,6 +1397,16 @@ h3 {
     color: var(--primary);
     background: var(--primary-container);
     font-weight: 700;
+  }
+
+  .bottom-nav button.chat-nav {
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  .bottom-nav button.chat-nav.active {
+    background: var(--primary);
+    color: var(--on-primary);
   }
 
   .dialog {
