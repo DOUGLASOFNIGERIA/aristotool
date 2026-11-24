@@ -1,3 +1,4 @@
+import { resourcePdfBytes } from './pdf.js'
 import { catalogExport, packFilename, progressExport, resourceMarkdown, resourcePack } from './resource-pack.js'
 
 const OFFLINE_KEY = 'aristotool-offline-v1'
@@ -59,15 +60,40 @@ export function downloadFile(filename, content, mime = 'text/plain;charset=utf-8
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export function downloadResource(resource, media = {}, format = 'md') {
+export function downloadResource(resource, media = {}, format = 'pdf') {
   const safeName = packFilename(resource.title)
   if (format === 'json') {
     const pack = resourcePack(resource, media)
     downloadFile(`${safeName}.aristotool.json`, JSON.stringify(pack, null, 2), 'application/json;charset=utf-8')
     return 'json'
   }
-  downloadFile(`${safeName}.md`, resourceMarkdown(resource, media), 'text/markdown;charset=utf-8')
-  return 'md'
+  if (format === 'md') {
+    downloadFile(`${safeName}.md`, resourceMarkdown(resource, media), 'text/markdown;charset=utf-8')
+    return 'md'
+  }
+  downloadFile(`${safeName}.pdf`, resourcePdfBytes(resource, media), 'application/pdf')
+  return 'pdf'
+}
+
+export function downloadOfficialFile(media = {}) {
+  const value = String(media.fileUrl || '').trim()
+  if (!value) return false
+  let target
+  try {
+    target = new URL(value, window.location.href)
+  } catch {
+    return false
+  }
+  if (!/^https?:$/.test(target.protocol)) return false
+  const anchor = document.createElement('a')
+  anchor.href = target.href
+  anchor.download = media.fileName || target.pathname.split('/').pop() || 'official-resource'
+  anchor.target = '_blank'
+  anchor.rel = 'noopener noreferrer'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  return true
 }
 
 export function downloadCatalog(resources, paths) {

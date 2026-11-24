@@ -27,6 +27,9 @@ export function resourceMarkdown(resource, media = {}, meta = {}) {
 
   if (media.resourceUrl) lines.push(`- Official link: ${media.resourceUrl}`)
   if (media.watchUrl) lines.push(`- Video: ${media.watchUrl}`)
+  if (media.fileUrl) {
+    lines.push(`- Official file: ${media.fileLabel || media.fileName || 'Download file'} — ${media.fileUrl}`)
+  }
 
   lines.push('', '## Scope and safety', '', SCOPE_NOTE, '', '## What you will learn', '')
   for (const outcome of resource.outcomes || []) lines.push(`- ${outcome}`)
@@ -75,6 +78,10 @@ export function resourcePack(resource, media = {}, meta = {}) {
       resourceUrl: media.resourceUrl || '',
       resourceLabel: media.resourceLabel || '',
       watchUrl: media.watchUrl || '',
+      fileUrl: media.fileUrl || '',
+      fileName: media.fileName || '',
+      fileType: media.fileType || '',
+      fileLabel: media.fileLabel || '',
     },
     scope: SCOPE_NOTE,
   }
@@ -109,6 +116,10 @@ export function catalogExport(resources = [], paths = [], meta = {}) {
       tags: item.tags || [],
       summary: item.summary,
       resourceUrl: item.resourceUrl || '',
+      fileUrl: item.fileUrl || '',
+      fileName: item.fileName || '',
+      fileType: item.fileType || '',
+      fileLabel: item.fileLabel || '',
     })),
     paths: paths.map((item) => ({
       id: item.id,

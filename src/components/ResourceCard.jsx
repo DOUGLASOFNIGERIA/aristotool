@@ -38,10 +38,10 @@ export default function ResourceCard({
             className={`icon-button ${offlineSaved ? 'active' : ''}`}
             onClick={(event) => {
               event.stopPropagation()
-              onDownload(resource, resource.media)
+              onDownload(resource, resource.media, 'pdf')
             }}
-            aria-label={`Download ${resource.title}`}
-            title="Download pack"
+            aria-label={`Download ${resource.title} as PDF`}
+            title="Download PDF"
           >
             <Icon name="download" size={19} />
           </button>

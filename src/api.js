@@ -35,6 +35,8 @@ export const api = {
   onboarding: (payload) => request('/auth/onboarding', { method: 'POST', body: JSON.stringify(payload) }),
   catalog: () => request('/catalog'),
   exportCatalog: () => request('/export/catalog'),
+  exportResourceUrl: (id, format = 'pdf') =>
+    `${base}/export/resource/${encodeURIComponent(id)}?format=${encodeURIComponent(format)}`,
   exportProgress: () => request('/export/progress'),
   state: () => request('/state'),
   setProgress: (payload) => request('/progress', { method: 'POST', body: JSON.stringify(payload) }),

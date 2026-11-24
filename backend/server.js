@@ -38,6 +38,7 @@ import {
   sendOtpEmail,
 } from './mailer.js'
 import { getMedia } from '../src/data/resources.js'
+import { resourcePdfBytes } from '../src/data/pdf.js'
 import { catalogExport, packFilename, progressExport, resourceMarkdown } from '../src/data/resource-pack.js'
 
 const app = express()
@@ -366,9 +367,16 @@ app.get(
     const catalog = publicCatalog(await getCatalog())
     const resource = catalog.resources.find((item) => item.id === id)
     if (!resource) return res.status(404).json({ error: 'Resource not found.' })
-    res.setHeader('Content-Type', 'text/markdown; charset=utf-8')
-    res.setHeader('Content-Disposition', `attachment; filename="${packFilename(resource.title)}.md"`)
-    res.send(resourceMarkdown(resource, resource))
+    const format = String(req.query.format || 'pdf').toLowerCase()
+    if (format === 'md') {
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8')
+      res.setHeader('Content-Disposition', `attachment; filename="${packFilename(resource.title)}.md"`)
+      return res.send(resourceMarkdown(resource, resource))
+    }
+    if (format !== 'pdf') return res.status(400).json({ error: 'Unsupported export format.' })
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${packFilename(resource.title)}.pdf"`)
+    return res.send(Buffer.from(resourcePdfBytes(resource, resource)))
   }),
 )
 

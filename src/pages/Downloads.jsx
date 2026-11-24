@@ -28,7 +28,7 @@ export default function Downloads({
           <p className="eyebrow">Take it with you</p>
           <h1>Downloads &amp; offline</h1>
           <p className="lead">
-            Save resource packs on this device, print clean study copies, and export your catalog or progress as JSON.
+            Download real PDF study sheets, open verified official files, and export your catalog or progress as JSON.
           </p>
         </div>
         <button className="button outlined" onClick={() => navigate('library')}>
@@ -39,8 +39,9 @@ export default function Downloads({
       <div className="card download-note">
         <Icon name="shield" size={22} />
         <div>
-          <strong>Official sources only.</strong> Packs summarize Aristotool catalog entries and link back to their
-          original publishers. The app does not bundle third-party books or videos.
+          <strong>Official sources only.</strong> PDFs are generated from Aristotool catalog entries and link back to
+          their original publishers. Verified official files open at the source. The app does not bundle third-party books
+          or videos.
         </div>
       </div>
 
@@ -112,6 +113,17 @@ export default function Downloads({
                         >
                           {packed.media.resourceLabel || 'Official source'}
                         </a>
+                      )}{' '}
+                      {packed.media?.fileUrl && (
+                        <a
+                          className="inline-link"
+                          href={packed.media.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={packed.media.fileName}
+                        >
+                          {packed.media.fileLabel || packed.media.fileName || `Official ${packed.media.fileType || 'file'}`}
+                        </a>
                       )}
                     </div>
                     <div className="row-actions">
@@ -120,8 +132,11 @@ export default function Downloads({
                           <Icon name="arrowForward" size={17} /> Open
                         </button>
                       )}
-                      <button className="button text small" onClick={() => onDownload(live || packed, packed.media)}>
-                        <Icon name="download" size={17} /> Re-download
+                      <button
+                        className="button text small"
+                        onClick={() => onDownload(live || packed, packed.media, 'pdf')}
+                      >
+                        <Icon name="download" size={17} /> Re-download PDF
                       </button>
                       <button
                         className="icon-button"

@@ -21,6 +21,7 @@ import {
   copyToClipboard,
   downloadCatalog,
   downloadFile,
+  downloadOfficialFile,
   downloadOfflineBundle,
   downloadResource,
   readOfflineEntries,
@@ -46,6 +47,10 @@ const knownPages = [
 function initialPage() {
   const slug = window.location.pathname.replace(/^\/+|\/+$/g, '')
   return knownPages.includes(slug) ? slug : 'home'
+}
+
+function mediaFor(resource, media) {
+  return media || resource.media || (resource.resourceUrl ? resource : getMedia(resource.id))
 }
 
 export default function App() {
@@ -211,13 +216,18 @@ export default function App() {
     [completed, updateProgress],
   )
 
-  const downloadResourceFile = useCallback((resource, media) => {
-    downloadResource(resource, media || resource.media || getMedia(resource.id))
-    setSnack('Resource pack downloaded.')
+  const downloadResourceFile = useCallback((resource, media, format = 'pdf') => {
+    const result = downloadResource(resource, mediaFor(resource, media), format)
+    setSnack(result === 'md' ? 'Markdown file downloaded.' : result === 'json' ? 'JSON file downloaded.' : 'PDF downloaded.')
+  }, [])
+
+  const downloadOfficialResource = useCallback((resource, media) => {
+    const opened = downloadOfficialFile(mediaFor(resource, media))
+    setSnack(opened ? 'Opening the official file download.' : 'No official file is available for this resource.')
   }, [])
 
   const saveOfflineResource = useCallback((resource, media) => {
-    const saved = saveOfflineEntry(resource, media || resource.media || getMedia(resource.id))
+    const saved = saveOfflineEntry(resource, mediaFor(resource, media))
     setOfflineEntries(readOfflineEntries())
     setSnack(saved ? 'Saved offline on this device.' : 'Could not save offline — browser storage is full.')
   }, [])
@@ -481,6 +491,7 @@ export default function App() {
           onComplete={() => toggleComplete(selectedResource)}
           onSaveOffline={saveOfflineResource}
           onDownload={downloadResourceFile}
+          onDownloadOfficial={downloadOfficialResource}
           onPrint={printResource}
           onCopyLink={copySourceLink}
         />

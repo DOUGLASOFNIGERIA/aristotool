@@ -20,6 +20,7 @@ export default function ResourceDialog({
   onComplete,
   onSaveOffline,
   onDownload,
+  onDownloadOfficial,
   onPrint,
   onCopyLink,
 }) {
@@ -35,7 +36,7 @@ export default function ResourceDialog({
     }
   }, [onClose])
 
-  const media = resource.media || getMedia(resource.id)
+  const media = resource.media || (resource.resourceUrl ? resource : getMedia(resource.id))
 
   return (
     <div
@@ -115,9 +116,14 @@ export default function ResourceDialog({
           </div>
 
           <div className="download-action-row">
-            <button className="button outlined small" onClick={() => onDownload(resource, media)}>
-              <Icon name="download" size={17} /> Download pack
+            <button className="button filled small" onClick={() => onDownload(resource, media, 'pdf')}>
+              <Icon name="download" size={17} /> Download PDF
             </button>
+            {media.fileUrl && (
+              <button className="button outlined small" onClick={() => onDownloadOfficial(resource, media)}>
+                <Icon name="download" size={17} /> Official {media.fileType || 'file'}
+              </button>
+            )}
             <button
               className={`button ${offlineSaved ? 'tonal' : 'outlined'} small`}
               onClick={() => onSaveOffline(resource, media)}
@@ -126,7 +132,7 @@ export default function ResourceDialog({
               {offlineSaved ? 'Saved offline' : 'Save offline'}
             </button>
             <button className="button text small" onClick={onPrint}>
-              <Icon name="print" size={17} /> Print / PDF
+              <Icon name="print" size={17} /> Print
             </button>
             <button className="button text small" onClick={() => onCopyLink(media.resourceUrl)}>
               <Icon name="copy" size={17} /> Copy link
@@ -202,6 +208,11 @@ export default function ResourceDialog({
             <p>
               <strong>Official source:</strong> {media.resourceLabel || 'Resource'} — {media.resourceUrl}
             </p>
+            {media.fileUrl && (
+              <p>
+                <strong>Official file:</strong> {media.fileLabel || media.fileName} — {media.fileUrl}
+              </p>
+            )}
             <h2>What you'll learn</h2>
             <ul>
               {resource.outcomes.map((outcome) => (
