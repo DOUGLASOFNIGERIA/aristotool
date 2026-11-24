@@ -1506,6 +1506,47 @@ h3 {
   .menu-head span {
     max-width: 125px;
   }
+
+  .community-feed {
+    min-height: 0;
+  }
+
+  .community-feed-head {
+    padding: 16px;
+  }
+
+  .community-messages {
+    max-height: min(46vh, 420px);
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .community-composer {
+    padding: 12px 14px 14px;
+  }
+
+  .community-composer textarea {
+    min-height: 92px;
+    font-size: 16px;
+    line-height: 1.45;
+    resize: none;
+  }
+
+  .composer-row {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .composer-row .button {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .composer-count {
+    order: 3;
+    width: 100%;
+    text-align: right;
+  }
 }
 
 @media (max-width: 380px) {
@@ -1533,7 +1574,8 @@ h3 {
     height: 34px;
   }
 
-  .avatar-button {
+  .avatar-button,
+  img.avatar-button {
     width: 36px;
     height: 36px;
   }
@@ -1612,19 +1654,34 @@ h3 {
   display: grid;
   place-items: center;
   flex: none;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
 }
 
 .avatar-button:hover {
   border-color: var(--primary);
 }
 
-.avatar-button img,
-img.avatar-button {
+.avatar-button img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   border-radius: 50%;
   display: block;
+}
+
+img.avatar-button {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  display: block;
+  padding: 0;
 }
 
 .avatar-input {
@@ -2344,13 +2401,20 @@ img.avatar-button {
   color: var(--on-primary-container);
   font-size: 12px;
   font-weight: 700;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
 }
 
 .message-avatar img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   border-radius: 50%;
+  display: block;
 }
 
 .message-avatar.small {
