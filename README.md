@@ -48,7 +48,17 @@ Current catalog:
 - Guided learning path dialog with ordered resources and completion tracking.
 - Programming for Ethical Hackers track covering Python basics, Python projects, Bash scripting, and the Nmap Scripting Engine.
 - Personal dashboard with continue-learning, saved items, and progress summaries.
-- Dedicated Library, Videos, Notes, Labs, Learning, Community, and About pages.
+- Dedicated Library, Videos, Notes, Labs, Learning, Downloads, Community, and About pages.
+
+### Downloads and offline access
+
+- Download any resource as a Markdown study pack with outcomes, outline, scope note, and official source URL.
+- Save resource packs in browser localStorage for offline access on the same device.
+- Print or save any resource as PDF from a clean, dedicated print sheet.
+- Copy verified source links directly from the resource dialog.
+- Export the full catalog, your own progress, or all saved offline packs as portable JSON.
+- Filter the library by resources you have saved offline.
+- Instructional copy makes it explicit that the app summarizes official sources and does not bundle third-party books or videos.
 
 ### Accounts and persistence
 
@@ -265,7 +275,7 @@ The confirmation endpoint is idempotency-sensitive: a consumed or unknown token 
 
 ## API Reference
 
-All routes return JSON. Cookie-based session authentication is used for protected routes.
+Most routes return JSON; the single-resource export returns Markdown. Cookie-based session authentication is used for protected routes.
 
 | Method | Route | Auth | Description |
 | --- | --- | --- | --- |
@@ -279,6 +289,9 @@ All routes return JSON. Cookie-based session authentication is used for protecte
 | `POST` | `/api/auth/logout` | No | Deletes the session and clears the cookie |
 | `POST` | `/api/auth/onboarding` | Yes | Saves interests, experience, and goals |
 | `GET` | `/api/catalog` | No | Returns resources and learning paths with media metadata |
+| `GET` | `/api/export/catalog` | No | Returns a portable catalog export with counts |
+| `GET` | `/api/export/resource/:id` | No | Returns one resource as a downloadable Markdown study pack |
+| `GET` | `/api/export/progress` | Yes | Returns the current user's progress as a portable JSON export |
 | `GET` | `/api/state` | Yes | Returns the current user's progress |
 | `POST` | `/api/progress` | Yes | Sets a bookmark, completed, or started value |
 | `GET` | `/api/admin/stats` | Admin | Returns aggregated signup and learner activity statistics |
@@ -442,7 +455,7 @@ Not yet implemented:
 - Rate limiting on login, registration, resend, and confirmation
 - Password reset and email change flows
 - CSRF protection if cookie behavior is expanded
-- Account deletion and data export
+- Account deletion and full account archive export
 - Audit logging and monitoring
 - Dependency vulnerability monitoring and a document-level CSP for the SPA shell
 
@@ -466,6 +479,10 @@ Use this after changes to confirm the core system still works:
 14. Set `CHAT_RETENTION_DAYS=0`, restart the API, and confirm old posts and orphan screenshots are pruned.
 15. Sign in as an admin and open **Stats**; verify totals, the seven-day chart, and recent signups load.
 16. Register a test account and confirm the admin signup notification arrives when SMTP is configured.
+17. Open a resource, choose **Download pack**, and confirm a Markdown file is saved with the official source URL.
+18. Choose **Save offline**, reload the page, and confirm the pack appears on **Downloads** and in the library's **Offline** filter.
+19. Choose **Print / PDF** and confirm the print preview shows only the clean study sheet.
+20. On **Downloads**, export the catalog and your progress JSON; confirm `/api/export/catalog` and `/api/export/progress` respond as documented.
 
 ## Troubleshooting
 
@@ -573,3 +590,4 @@ The repository history is organized into focused incremental commits:
 7. Managed Turso/libSQL migration and Vercel deployment configuration
 8. Admin statistics, signup notifications, community chat, and catalog expansion
 9. Programming track for ethical hackers: Python, Bash, NSE, and lab projects
+10. Downloads and offline access: Markdown study packs, print/PDF sheets, verified source links, offline storage, and JSON exports

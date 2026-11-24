@@ -1,7 +1,15 @@
 import Icon from './Icon.jsx'
 import { typeIcons, typeLabels, difficultyColors } from '../data/resources.js'
 
-export default function ResourceCard({ resource, bookmarked, completed, onOpen, onBookmark }) {
+export default function ResourceCard({
+  resource,
+  bookmarked,
+  completed,
+  offlineSaved,
+  onOpen,
+  onBookmark,
+  onDownload,
+}) {
   return (
     <article
       className="card resource-card clickable"
@@ -26,6 +34,17 @@ export default function ResourceCard({ resource, bookmarked, completed, onOpen, 
               <Icon name="checkCircle" size={19} />
             </span>
           )}
+          <button
+            className={`icon-button ${offlineSaved ? 'active' : ''}`}
+            onClick={(event) => {
+              event.stopPropagation()
+              onDownload(resource, resource.media)
+            }}
+            aria-label={`Download ${resource.title}`}
+            title="Download pack"
+          >
+            <Icon name="download" size={19} />
+          </button>
           <button
             className={`icon-button ${bookmarked ? 'active' : ''}`}
             onClick={(event) => {

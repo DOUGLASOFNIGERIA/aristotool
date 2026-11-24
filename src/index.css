@@ -2332,3 +2332,152 @@ h3 {
   }
 }
 
+.download-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  margin-bottom: 28px;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.download-note svg {
+  color: var(--primary);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.download-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 26px;
+}
+
+.download-action-row.wide {
+  margin: 0;
+}
+
+.offline-list {
+  display: grid;
+  gap: 12px;
+}
+
+.download-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--outline-variant);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.download-row .grow h4 {
+  font-size: 15px;
+  margin: 0 0 5px;
+}
+
+.download-row .grow p {
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  margin: 0;
+}
+
+.inline-link {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.inline-link:hover {
+  text-decoration: underline;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.print-sheet {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .download-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .row-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media print {
+  .app-shell,
+  .snackbar {
+    display: none !important;
+  }
+
+  .print-sheet {
+    display: block !important;
+    color: #111;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  .print-sheet h1 {
+    font-size: 24pt;
+    margin: 0 0 8pt;
+  }
+
+  .print-sheet h2 {
+    font-size: 14pt;
+    margin: 18pt 0 6pt;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4pt;
+  }
+
+  .print-sheet p,
+  .print-sheet li {
+    margin: 0 0 6pt;
+  }
+
+  .print-sheet ul,
+  .print-sheet ol {
+    padding-left: 20pt;
+  }
+
+  .print-brand {
+    font-family: Arial, sans-serif;
+    font-size: 9pt;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555;
+  }
+
+  .print-meta {
+    color: #555;
+  }
+
+  .print-foot {
+    margin-top: 24pt !important;
+    color: #666;
+    font-size: 9pt;
+    font-family: Arial, sans-serif;
+  }
+
+  @page {
+    margin: 18mm;
+  }
+}
+

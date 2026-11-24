@@ -8,8 +8,10 @@ export default function Home({
   bookmarks,
   completed,
   started,
+  offlineIds,
   onOpen,
   onBookmark,
+  onDownload,
   onOpenPath,
   navigate,
   onCategory,
@@ -109,8 +111,10 @@ export default function Home({
                 resource={item}
                 bookmarked={bookmarks.has(item.id)}
                 completed={completed.has(item.id)}
+                offlineSaved={offlineIds.has(item.id)}
                 onOpen={onOpen}
                 onBookmark={onBookmark}
+                onDownload={onDownload}
               />
             ))}
           </div>
@@ -175,8 +179,10 @@ export default function Home({
               resource={item}
               bookmarked={bookmarks.has(item.id)}
               completed={completed.has(item.id)}
+              offlineSaved={offlineIds.has(item.id)}
               onOpen={onOpen}
               onBookmark={onBookmark}
+              onDownload={onDownload}
             />
           ))}
         </div>

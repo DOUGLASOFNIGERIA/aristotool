@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Layout, { typeByPage } from './components/Layout.jsx'
 import ResourceDialog from './components/ResourceDialog.jsx'
 import PathDialog from './components/PathDialog.jsx'
@@ -6,6 +6,7 @@ import Icon from './components/Icon.jsx'
 import Home from './pages/Home.jsx'
 import Library from './pages/Library.jsx'
 import Learning from './pages/Learning.jsx'
+import Downloads from './pages/Downloads.jsx'
 import About from './pages/About.jsx'
 import Community from './pages/Community.jsx'
 import Login from './pages/Login.jsx'
@@ -14,7 +15,18 @@ import ConfirmEmail from './pages/ConfirmEmail.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Admin from './pages/Admin.jsx'
 import Stats from './pages/Stats.jsx'
-import { resources as seedResources, learningPaths as seedPaths } from './data/resources.js'
+import { resources as seedResources, learningPaths as seedPaths, getMedia } from './data/resources.js'
+import {
+  clearOfflineEntries,
+  copyToClipboard,
+  downloadCatalog,
+  downloadFile,
+  downloadOfflineBundle,
+  downloadResource,
+  readOfflineEntries,
+  removeOfflineEntry,
+  saveOfflineEntry,
+} from './data/downloads.js'
 import { api } from './api.js'
 
 const knownPages = [
@@ -24,6 +36,7 @@ const knownPages = [
   'notes',
   'labs',
   'learning',
+  'downloads',
   'community',
   'about',
   'admin',
@@ -56,7 +69,13 @@ export default function App() {
   const [started, setStarted] = useState(new Set())
   const [selectedResource, setSelectedResource] = useState(null)
   const [selectedPath, setSelectedPath] = useState(null)
+  const [offlineEntries, setOfflineEntries] = useState(() => readOfflineEntries())
   const [snack, setSnack] = useState('')
+
+  const offlineIds = useMemo(
+    () => new Set(offlineEntries.map((entry) => entry.resource?.id)),
+    [offlineEntries],
+  )
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -192,6 +211,71 @@ export default function App() {
     [completed, updateProgress],
   )
 
+  const downloadResourceFile = useCallback((resource, media) => {
+    downloadResource(resource, media || resource.media || getMedia(resource.id))
+    setSnack('Resource pack downloaded.')
+  }, [])
+
+  const saveOfflineResource = useCallback((resource, media) => {
+    const saved = saveOfflineEntry(resource, media || resource.media || getMedia(resource.id))
+    setOfflineEntries(readOfflineEntries())
+    setSnack(saved ? 'Saved offline on this device.' : 'Could not save offline — browser storage is full.')
+  }, [])
+
+  const removeOfflineResource = useCallback((id) => {
+    removeOfflineEntry(id)
+    setOfflineEntries(readOfflineEntries())
+    setSnack('Removed offline pack.')
+  }, [])
+
+  const clearOfflineResources = useCallback(() => {
+    clearOfflineEntries()
+    setOfflineEntries([])
+    setSnack('Offline packs cleared.')
+  }, [])
+
+  const copySourceLink = useCallback(async (url) => {
+    const copied = await copyToClipboard(url)
+    setSnack(copied ? 'Source link copied.' : 'Could not copy the link.')
+  }, [])
+
+  const printResource = useCallback(() => {
+    window.print()
+  }, [])
+
+  const downloadCatalogFile = useCallback(async () => {
+    try {
+      const payload = await api.exportCatalog()
+      downloadFile(
+        'aristotool-catalog.json',
+        JSON.stringify(payload, null, 2),
+        'application/json;charset=utf-8',
+      )
+    } catch {
+      downloadCatalog(resources, paths)
+    }
+    setSnack('Catalog export downloaded.')
+  }, [resources, paths])
+
+  const exportProgressFile = useCallback(async () => {
+    try {
+      const payload = await api.exportProgress()
+      downloadFile(
+        'aristotool-progress.json',
+        JSON.stringify(payload, null, 2),
+        'application/json;charset=utf-8',
+      )
+      setSnack('Progress export downloaded.')
+    } catch {
+      setSnack('Could not export progress from the server.')
+    }
+  }, [])
+
+  const downloadBundle = useCallback(() => {
+    downloadOfflineBundle(offlineEntries)
+    setSnack('Offline bundle downloaded.')
+  }, [offlineEntries])
+
   const openCategory = useCallback(
     (nextCategory) => {
       setCategory(nextCategory)
@@ -319,8 +403,10 @@ export default function App() {
           bookmarks={bookmarks}
           completed={completed}
           started={started}
+          offlineIds={offlineIds}
           onOpen={openResource}
           onBookmark={toggleBookmark}
+          onDownload={downloadResourceFile}
           onOpenPath={setSelectedPath}
           navigate={navigate}
           onCategory={openCategory}
@@ -337,8 +423,10 @@ export default function App() {
           setCategory={setCategory}
           bookmarks={bookmarks}
           completed={completed}
+          offlineIds={offlineIds}
           onOpen={openResource}
           onBookmark={toggleBookmark}
+          onDownload={downloadResourceFile}
         />
       )}
       {page === 'learning' && (
@@ -350,6 +438,20 @@ export default function App() {
           started={started}
           onOpen={openResource}
           onOpenPath={setSelectedPath}
+          navigate={navigate}
+        />
+      )}
+      {page === 'downloads' && (
+        <Downloads
+          offlineEntries={offlineEntries}
+          resources={resources}
+          onOpen={openResource}
+          onDownload={downloadResourceFile}
+          onRemove={removeOfflineResource}
+          onClear={clearOfflineResources}
+          onDownloadCatalog={downloadCatalogFile}
+          onExportProgress={exportProgressFile}
+          onDownloadBundle={downloadBundle}
           navigate={navigate}
         />
       )}
@@ -373,9 +475,14 @@ export default function App() {
           resource={selectedResource}
           bookmarked={bookmarks.has(selectedResource.id)}
           completed={completed.has(selectedResource.id)}
+          offlineSaved={offlineIds.has(selectedResource.id)}
           onClose={() => setSelectedResource(null)}
           onBookmark={() => toggleBookmark(selectedResource)}
           onComplete={() => toggleComplete(selectedResource)}
+          onSaveOffline={saveOfflineResource}
+          onDownload={downloadResourceFile}
+          onPrint={printResource}
+          onCopyLink={copySourceLink}
         />
       )}
 

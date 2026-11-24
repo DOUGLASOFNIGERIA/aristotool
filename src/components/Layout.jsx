@@ -8,12 +8,13 @@ const railItems = [
   { id: 'notes', label: 'Notes', icon: 'article' },
   { id: 'labs', label: 'Labs', icon: 'science' },
   { id: 'learning', label: 'Learning', icon: 'school' },
+  { id: 'downloads', label: 'Downloads', icon: 'download' },
   { id: 'community', label: 'Community', icon: 'forum' },
   { id: 'about', label: 'About', icon: 'info' },
 ]
 
 const bottomItems = railItems.filter((item) =>
-  ['home', 'library', 'videos', 'labs', 'learning', 'community'].includes(item.id),
+  ['home', 'library', 'videos', 'labs', 'learning', 'downloads', 'community'].includes(item.id),
 )
 
 const typeByPage = {
@@ -185,6 +186,16 @@ export default function Layout({
                 }}
               >
                 <Icon name="school" /> My learning
+              </button>
+              <button
+                className="menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false)
+                  navigate('downloads')
+                }}
+              >
+                <Icon name="download" /> Downloads &amp; offline
               </button>
               <button
                 className="menu-item"

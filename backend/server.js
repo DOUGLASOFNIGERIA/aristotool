@@ -38,6 +38,7 @@ import {
   sendOtpEmail,
 } from './mailer.js'
 import { getMedia } from '../src/data/resources.js'
+import { catalogExport, packFilename, progressExport, resourceMarkdown } from '../src/data/resource-pack.js'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
@@ -346,6 +347,38 @@ app.get(
   '/api/catalog',
   asyncHandler(async (_req, res) => {
     res.json(publicCatalog(await getCatalog()))
+  }),
+)
+
+app.get(
+  '/api/export/catalog',
+  asyncHandler(async (_req, res) => {
+    const catalog = publicCatalog(await getCatalog())
+    res.setHeader('Content-Disposition', 'attachment; filename="aristotool-catalog.json"')
+    res.json(catalogExport(catalog.resources, catalog.paths))
+  }),
+)
+
+app.get(
+  '/api/export/resource/:id',
+  asyncHandler(async (req, res) => {
+    const id = String(req.params.id || '')
+    const catalog = publicCatalog(await getCatalog())
+    const resource = catalog.resources.find((item) => item.id === id)
+    if (!resource) return res.status(404).json({ error: 'Resource not found.' })
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${packFilename(resource.title)}.md"`)
+    res.send(resourceMarkdown(resource, resource))
+  }),
+)
+
+app.get(
+  '/api/export/progress',
+  asyncHandler(requireAuth),
+  asyncHandler(async (req, res) => {
+    const [progress, catalog] = await Promise.all([getProgress(req.user.id), getCatalog()])
+    res.setHeader('Content-Disposition', 'attachment; filename="aristotool-progress.json"')
+    res.json(progressExport(progress, catalog.resources, req.user))
   }),
 )
 

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Icon from './Icon.jsx'
 import {
   typeIcons,
@@ -7,14 +8,20 @@ import {
   formatDuration,
   getMedia,
 } from '../data/resources.js'
+import { scopeNote } from '../data/resource-pack.js'
 
 export default function ResourceDialog({
   resource,
   bookmarked,
   completed,
+  offlineSaved,
   onClose,
   onBookmark,
   onComplete,
+  onSaveOffline,
+  onDownload,
+  onPrint,
+  onCopyLink,
 }) {
   useEffect(() => {
     const onKey = (event) => {
@@ -107,6 +114,25 @@ export default function ResourceDialog({
             </a>
           </div>
 
+          <div className="download-action-row">
+            <button className="button outlined small" onClick={() => onDownload(resource, media)}>
+              <Icon name="download" size={17} /> Download pack
+            </button>
+            <button
+              className={`button ${offlineSaved ? 'tonal' : 'outlined'} small`}
+              onClick={() => onSaveOffline(resource, media)}
+            >
+              <Icon name={offlineSaved ? 'checkCircle' : 'list'} size={17} />
+              {offlineSaved ? 'Saved offline' : 'Save offline'}
+            </button>
+            <button className="button text small" onClick={onPrint}>
+              <Icon name="print" size={17} /> Print / PDF
+            </button>
+            <button className="button text small" onClick={() => onCopyLink(media.resourceUrl)}>
+              <Icon name="copy" size={17} /> Copy link
+            </button>
+          </div>
+
           <h3>What you'll learn</h3>
           <p className="muted" style={{ fontSize: 14, lineHeight: 1.6 }}>
             {resource.summary}
@@ -164,6 +190,50 @@ export default function ResourceDialog({
             {completed ? 'Completed' : 'Mark complete'}
           </button>
         </div>
+
+        {createPortal(
+          <div className="print-sheet">
+            <p className="print-brand">Aristotool · {typeLabels[resource.type]} · {resource.category}</p>
+            <h1>{resource.title}</h1>
+            <p className="print-meta">
+              {resource.difficulty} · {formatDuration(resource.minutes)} · {resource.instructor} · Updated{' '}
+              {resource.updated}
+            </p>
+            <p>
+              <strong>Official source:</strong> {media.resourceLabel || 'Resource'} — {media.resourceUrl}
+            </p>
+            <h2>What you'll learn</h2>
+            <ul>
+              {resource.outcomes.map((outcome) => (
+                <li key={outcome}>{outcome}</li>
+              ))}
+            </ul>
+            <h2>{resource.type === 'lab' ? 'Lab exercises' : 'Study outline'}</h2>
+            {resource.type === 'lab' ? (
+              <ol>
+                {resource.steps.map((step) => (
+                  <li key={step.title}>
+                    <strong>{step.title}</strong>
+                    <p>{step.detail}</p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <ol>
+                {resource.sections.map((section) => (
+                  <li key={section.title}>
+                    {section.title}
+                    {section.time ? ` (${section.time})` : ''}
+                  </li>
+                ))}
+              </ol>
+            )}
+            <h2>Scope and safety</h2>
+            <p>{scopeNote()}</p>
+            <p className="print-foot">Exported from Aristotool on {new Date().toISOString().slice(0, 10)}</p>
+          </div>,
+          document.body,
+        )}
       </section>
     </div>
   )

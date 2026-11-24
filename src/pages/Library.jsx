@@ -20,12 +20,15 @@ export default function Library({
   setCategory,
   bookmarks,
   completed,
+  offlineIds,
   onOpen,
   onBookmark,
+  onDownload,
 }) {
   const [difficulty, setDifficulty] = useState('all')
   const [sort, setSort] = useState('popular')
   const [savedOnly, setSavedOnly] = useState(false)
+  const [offlineOnly, setOfflineOnly] = useState(false)
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -34,6 +37,7 @@ export default function Library({
       if (category !== 'all' && item.category !== category) return false
       if (difficulty !== 'all' && item.difficulty !== difficulty) return false
       if (savedOnly && !bookmarks.has(item.id)) return false
+      if (offlineOnly && !offlineIds.has(item.id)) return false
       if (!needle) return true
       return [item.title, item.summary, item.category, item.instructor, ...item.tags]
         .join(' ')
@@ -47,7 +51,7 @@ export default function Library({
       if (sort === 'newest') return b.updated.localeCompare(a.updated)
       return b.learners - a.learners
     })
-  }, [resources, query, selectedType, category, difficulty, sort, savedOnly, bookmarks])
+  }, [resources, query, selectedType, category, difficulty, sort, savedOnly, offlineOnly, bookmarks, offlineIds])
 
   const clearAll = () => {
     setQuery('')
@@ -55,6 +59,7 @@ export default function Library({
     setCategory('all')
     setDifficulty('all')
     setSavedOnly(false)
+    setOfflineOnly(false)
   }
 
   return (
@@ -86,6 +91,13 @@ export default function Library({
         >
           <Icon name="bookmarkBorder" />
           Saved
+        </button>
+        <button
+          className={`filter-chip ${offlineOnly ? 'selected' : ''}`}
+          onClick={() => setOfflineOnly((value) => !value)}
+        >
+          <Icon name="download" />
+          Offline
         </button>
       </div>
 
@@ -147,8 +159,10 @@ export default function Library({
               resource={item}
               bookmarked={bookmarks.has(item.id)}
               completed={completed.has(item.id)}
+              offlineSaved={offlineIds.has(item.id)}
               onOpen={onOpen}
               onBookmark={onBookmark}
+              onDownload={onDownload}
             />
           ))}
         </div>
