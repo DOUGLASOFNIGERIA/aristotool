@@ -4,25 +4,25 @@ const values = [
   {
     icon: 'shield',
     title: 'Ethics first',
-    color: '#0b57d0',
+    color: '#0f766e',
     text: 'Every lesson is framed around authorisation, scope and responsibility. Skill without judgement is not the goal.',
   },
   {
     icon: 'science',
     title: 'Learn by doing',
-    color: '#a142f4',
+    color: '#9c6b3f',
     text: 'Concepts stick when you practice them. Our labs are scoped, guided and built for deliberate repetition.',
   },
   {
     icon: 'menuBook',
     title: 'Clear by design',
-    color: '#00897b',
+    color: '#18887b',
     text: 'Short lessons, reusable notes and a sensible order — so you spend less time figuring out where to start.',
   },
   {
     icon: 'group',
     title: 'For the community',
-    color: '#e37400',
+    color: '#9a5b12',
     text: 'Built for students, career changers and working defenders who want a dependable place to sharpen their craft.',
   },
 ]

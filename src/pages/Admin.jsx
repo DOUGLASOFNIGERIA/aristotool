@@ -29,7 +29,7 @@ const emptyPath = {
   id: '',
   title: '',
   description: '',
-  color: '#0b57d0',
+  color: '#0f766e',
   icon: 'school',
   resourceIds: '',
 }
@@ -63,7 +63,7 @@ const template = {
       id: 'p100',
       title: 'Example learning path',
       description: 'A short path built from existing resource IDs.',
-      color: '#0b57d0',
+      color: '#0f766e',
       icon: 'school',
       resourceIds: ['n100'],
     },
