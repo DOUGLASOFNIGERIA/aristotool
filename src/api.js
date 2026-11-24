@@ -33,6 +33,7 @@ export const api = {
   login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   onboarding: (payload) => request('/auth/onboarding', { method: 'POST', body: JSON.stringify(payload) }),
+  avatar: (data) => request('/auth/avatar', { method: 'POST', body: JSON.stringify({ avatar: data }) }),
   catalog: () => request('/catalog'),
   exportCatalog: () => request('/export/catalog'),
   exportResourceUrl: (id, format = 'pdf') =>

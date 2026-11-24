@@ -11,7 +11,7 @@ export default function AuthLayout({ eyebrow, title, intro, step, children }) {
           Aristotool
         </div>
         <div>
-          <p className="eyebrow" style={{ color: '#d9f2eb' }}>
+          <p className="eyebrow" style={{ color: '#cfe0ff' }}>
             Learn with structure
           </p>
           <h2>The responsible way to learn ethical hacking.</h2>
@@ -34,7 +34,7 @@ export default function AuthLayout({ eyebrow, title, intro, step, children }) {
             </div>
           </div>
         </div>
-        <small style={{ color: '#d9f2eb' }}>
+        <small style={{ color: '#cfe0ff' }}>
           For authorized education and systems you own.
         </small>
       </aside>

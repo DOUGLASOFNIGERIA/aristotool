@@ -1,6 +1,51 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Icon from './Icon.jsx'
 import LogoMark from './LogoMark.jsx'
+
+const profileImageTypes = new Set(['image/png', 'image/jpeg', 'image/webp'])
+
+function readProfileImage(file) {
+  if (!profileImageTypes.has(file.type)) {
+    throw new Error('Choose a PNG, JPEG or WebP image.')
+  }
+  if (file.size > 8_000_000) {
+    throw new Error('Choose an image smaller than 8 MB.')
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('That image could not be read.'))
+    reader.onload = () => {
+      const image = new Image()
+      image.onerror = () => reject(new Error('That image could not be opened.'))
+      image.onload = () => {
+        const canvas = document.createElement('canvas')
+        const size = 256
+        canvas.width = size
+        canvas.height = size
+        const context = canvas.getContext('2d')
+        const side = Math.min(image.width, image.height)
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, size, size)
+        context.drawImage(
+          image,
+          (image.width - side) / 2,
+          (image.height - side) / 2,
+          side,
+          side,
+          0,
+          0,
+          size,
+          size,
+        )
+        const webp = canvas.toDataURL('image/webp', 0.82)
+        resolve(webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', 0.82))
+      }
+      image.src = String(reader.result)
+    }
+    reader.readAsDataURL(file)
+  })
+}
 
 const navItemById = {
   home: { id: 'home', label: 'Home', icon: 'home' },
@@ -38,10 +83,14 @@ export default function Layout({
   bookmarkCount,
   user,
   onLogout,
+  onAvatarChange,
+  onNotify,
   children,
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [overflowOpen, setOverflowOpen] = useState(false)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const avatarInputRef = useRef(null)
   const currentNav = activeNav || page
   const activeId = typeByPage[currentNav] ? 'library' : currentNav
   const initials = String(user?.name || 'Learner')
@@ -68,6 +117,33 @@ export default function Layout({
     setQuery(event.target.value)
     if (event.target.value.trim() && !['library', 'videos', 'notes', 'labs'].includes(page)) {
       navigate('library')
+    }
+  }
+
+  const changeAvatar = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !onAvatarChange) return
+    setAvatarBusy(true)
+    try {
+      const data = await readProfileImage(file)
+      await onAvatarChange(data)
+    } catch (error) {
+      onNotify?.(error.message || 'Could not update your profile picture.')
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  const removeAvatar = async () => {
+    if (!onAvatarChange) return
+    setAvatarBusy(true)
+    try {
+      await onAvatarChange('')
+    } catch (error) {
+      onNotify?.(error.message || 'Could not remove your profile picture.')
+    } finally {
+      setAvatarBusy(false)
     }
   }
 
@@ -232,12 +308,16 @@ export default function Layout({
               aria-label={`Profile menu for ${user?.name || 'learner'}`}
               aria-expanded={menuOpen}
             >
-              {initials}
+              {user?.avatar ? <img src={user.avatar} alt="" /> : initials}
             </button>
             {menuOpen && (
               <div className="profile-menu" role="menu">
                 <div className="menu-head">
-                  <span className="avatar-button">{initials}</span>
+                  {user?.avatar ? (
+                    <img className="avatar-button" src={user.avatar} alt="" />
+                  ) : (
+                    <span className="avatar-button">{initials}</span>
+                  )}
                   <div>
                     <strong>{user?.name}</strong>
                     <span>{user?.email}</span>
@@ -264,6 +344,28 @@ export default function Layout({
                 >
                   <Icon name="forum" /> Chat
                 </button>
+                {onAvatarChange && (
+                  <>
+                    <button
+                      className="menu-item"
+                      role="menuitem"
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={avatarBusy}
+                    >
+                      <Icon name="image" /> {avatarBusy ? 'Updating picture…' : user?.avatar ? 'Change picture' : 'Add profile picture'}
+                    </button>
+                    {user?.avatar && (
+                      <button
+                        className="menu-item danger"
+                        role="menuitem"
+                        onClick={removeAvatar}
+                        disabled={avatarBusy}
+                      >
+                        <Icon name="delete" /> Remove picture
+                      </button>
+                    )}
+                  </>
+                )}
                 <button
                   className="menu-item"
                   role="menuitem"
@@ -287,6 +389,15 @@ export default function Layout({
                 </button>
               </div>
             )}
+            <input
+              ref={avatarInputRef}
+              className="avatar-input"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={changeAvatar}
+              tabIndex={-1}
+              aria-hidden="true"
+            />
           </div>
         </div>
       </header>

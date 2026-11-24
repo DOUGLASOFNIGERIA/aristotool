@@ -311,6 +311,12 @@ export default function App() {
     changeFlow('login', '/')
   }, [changeFlow])
 
+  const updateAvatar = useCallback(async (data) => {
+    const response = await api.avatar(data)
+    setUser(response.user)
+    setSnack(data ? 'Profile picture updated.' : 'Profile picture removed.')
+  }, [])
+
   const pathItems = selectedPath
     ? resources.filter((item) => selectedPath.resourceIds.includes(item.id))
     : []
@@ -404,6 +410,8 @@ export default function App() {
       bookmarkCount={bookmarks.size}
       user={user}
       onLogout={handleLogout}
+      onAvatarChange={updateAvatar}
+      onNotify={setSnack}
     >
       {page === 'home' && (
         <Home

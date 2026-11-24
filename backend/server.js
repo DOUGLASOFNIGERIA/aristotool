@@ -22,6 +22,7 @@ import {
   listChatMessages,
   pruneUnusedAttachments,
   safeDisplayName,
+  saveAvatar,
   saveOnboarding,
   serializeUser,
   setProgress,
@@ -77,7 +78,7 @@ function allowRate(key, max, windowMs) {
   return true
 }
 
-function decodeImage(payload) {
+function decodeImage(payload, label = 'screenshot', plural = 'screenshots') {
   let value = String(payload || '').trim()
   let contentType = ''
   const dataUrl = value.match(/^data:([a-zA-Z0-9.+-]+\/[a-zA-Z0-9.+-]+);base64,([\s\S]*)$/)
@@ -86,14 +87,14 @@ function decodeImage(payload) {
     value = dataUrl[2].trim()
   }
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value) || value.length % 4 !== 0) {
-    throw fail(400, 'That screenshot is not a valid image file.')
+    throw fail(400, `That ${label} is not a valid image file.`)
   }
   const buffer = Buffer.from(value, 'base64')
   if (!buffer.length || buffer.toString('base64') !== value) {
-    throw fail(400, 'That screenshot is not a valid image file.')
+    throw fail(400, `That ${label} is not a valid image file.`)
   }
   if (!allowedImageTypes.has(contentType)) {
-    throw fail(400, 'Use a PNG, JPEG, WebP or GIF screenshot.')
+    throw fail(400, `Use a PNG, JPEG, WebP or GIF ${label}.`)
   }
   const signatures = {
     'image/png': (bytes) =>
@@ -110,10 +111,10 @@ function decodeImage(payload) {
       bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP',
   }
   if (!signatures[contentType](buffer)) {
-    throw fail(400, 'The screenshot contents do not match its image type.')
+    throw fail(400, `The ${label} contents do not match its image type.`)
   }
   if (buffer.length > MAX_ATTACHMENT_BYTES) {
-    throw fail(400, 'Screenshots must be smaller than 1.5 MB.')
+    throw fail(400, `${plural.charAt(0).toUpperCase()}${plural.slice(1)} must be smaller than 1.5 MB.`)
   }
   return { contentType, data: buffer.toString('base64'), buffer }
 }
@@ -340,6 +341,38 @@ app.post(
     if (goals.length < 8) return res.status(400).json({ error: 'Tell us a little more about your goal.' })
 
     const user = await saveOnboarding(req.user.id, { interests, experience, goals })
+    res.json({ user: serializeUser(user) })
+  }),
+)
+
+app.post(
+  '/api/auth/avatar',
+  asyncHandler(requireAuth),
+  asyncHandler(async (req, res) => {
+    if (!allowRate(`avatar:${req.user.id}`, 12, 60_000)) {
+      return res.status(429).json({ error: 'Too many picture updates. Try again shortly.' })
+    }
+
+    const raw = String(req.body?.avatar ?? req.body?.data ?? '')
+    if (!raw) {
+      const user = await saveAvatar(req.user.id, '')
+      return res.json({ user: serializeUser(user) })
+    }
+
+    let image
+    try {
+      image = decodeImage(raw, 'profile picture', 'profile pictures')
+    } catch (error) {
+      return res.status(error.status || 400).json({ error: error.message })
+    }
+    if (image.contentType === 'image/gif') {
+      return res.status(400).json({ error: 'Use a PNG, JPEG or WebP profile picture.' })
+    }
+    if (image.buffer.length > 500_000) {
+      return res.status(400).json({ error: 'Profile pictures must be smaller than 500 KB.' })
+    }
+
+    const user = await saveAvatar(req.user.id, `data:${image.contentType};base64,${image.data}`)
     res.json({ user: serializeUser(user) })
   }),
 )

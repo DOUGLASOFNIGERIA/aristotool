@@ -53,6 +53,7 @@ export async function initDb() {
         interests TEXT NOT NULL DEFAULT '',
         experience TEXT NOT NULL DEFAULT '',
         goals TEXT NOT NULL DEFAULT '',
+        avatar TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL
       )`,
       `CREATE TABLE IF NOT EXISTS confirmations (
@@ -111,6 +112,11 @@ export async function initDb() {
   const hasAdminColumn = userColumns.rows.some((column) => String(column.name) === 'is_admin')
   if (!hasAdminColumn) {
     await db.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0')
+  }
+
+  const hasAvatarColumn = userColumns.rows.some((column) => String(column.name) === 'avatar')
+  if (!hasAvatarColumn) {
+    await db.execute("ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''")
   }
 
   const confirmationColumns = await db.execute('PRAGMA table_info(confirmations)')
@@ -442,7 +448,16 @@ export function serializeUser(user) {
     interests: user.interests ? String(user.interests).split(',') : [],
     experience: user.experience,
     goals: user.goals,
+    avatar: user.avatar ? String(user.avatar) : '',
   }
+}
+
+export async function saveAvatar(userId, avatar) {
+  await db.execute({
+    sql: 'UPDATE users SET avatar = ? WHERE id = ?',
+    args: [String(avatar || ''), userId],
+  })
+  return findUserById(userId)
 }
 
 export async function getCatalog() {
