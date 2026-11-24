@@ -42,7 +42,7 @@ Current catalog:
 ### Learning experience
 
 - Material Design-inspired responsive UI with light and dark themes.
-- Compact desktop top navigation and a four-item mobile bottom bar with a More menu for secondary pages.
+- Compact desktop side navigation with five primary items and a More menu, plus a four-item mobile bottom bar with Chat last.
 - Search, category filtering, type filtering, difficulty filtering, and sorting.
 - Resource detail dialog with summary, learning outcomes, chapter or step breakdown, embedded video, and official resource link.
 - Guided learning path dialog with ordered resources and completion tracking.
@@ -423,7 +423,7 @@ When email delivery is configured, each new registration also sends a signup ale
 - `src/main.jsx` mounts the React app.
 - `src/App.jsx` owns bootstrapping, auth routing, catalog loading, progress state, dialog state, navigation, theme, and notifications.
 - `src/api.js` centralizes all calls to `/api` and standardizes error handling.
-- `Layout.jsx` renders the persistent app shell, search bar, desktop top navigation, four-item mobile bottom navigation, More menu, theme toggle, and profile menu.
+- `Layout.jsx` renders the persistent app shell, search bar, desktop side navigation, four-item mobile bottom navigation, More menus, theme toggle, and profile menu.
 - `pages/Admin.jsx` provides the admin-only resource form, JSON upload, learning path editor, and catalog inventory.
 - `pages/Community.jsx` renders the signed-in chat feed, screenshot composer, and privacy guidance.
 - Auth pages are intentionally lightweight and share `AuthLayout.jsx`.
@@ -473,8 +473,8 @@ Use this after changes to confirm the core system still works:
 7. Bookmark and complete a resource, reload the page, and verify persistence.
 8. Log out and verify protected routes require sign-in again.
 9. Register a new account, confirm it, complete onboarding, and open the dashboard.
-10. Check light and dark themes plus desktop navigation, the four-item mobile bottom bar, and the More menu.
-11. Open **Chat** from the top bar, bottom bar, or home page, post a message, and verify it appears without an email address.
+10. Check light and dark themes plus desktop side navigation, the four-item mobile bottom bar with Chat last, and the More menus.
+11. Open **Chat** from the side nav, bottom bar, or home page, post a message, and verify it appears without an email address.
 12. Attach a small PNG screenshot, open it from the post, then remove the post as its author.
 13. Confirm a second signed-in account cannot see an email in the feed and cannot delete another learner's post.
 14. Set `CHAT_RETENTION_DAYS=0`, restart the API, and confirm old posts and orphan screenshots are pruned.

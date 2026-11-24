@@ -1,20 +1,25 @@
 import { useState } from 'react'
 import Icon from './Icon.jsx'
+import LogoMark from './LogoMark.jsx'
 
-const primaryNavItems = [
-  { id: 'home', label: 'Home', icon: 'home' },
-  { id: 'library', label: 'Explore', icon: 'list' },
-  { id: 'community', label: 'Chat', icon: 'forum' },
-  { id: 'learning', label: 'Learning', icon: 'school' },
-]
+const navItemById = {
+  home: { id: 'home', label: 'Home', icon: 'home' },
+  library: { id: 'library', label: 'Explore', icon: 'list' },
+  learning: { id: 'learning', label: 'Learning', icon: 'school' },
+  downloads: { id: 'downloads', label: 'Downloads', icon: 'download' },
+  community: { id: 'community', label: 'Chat', icon: 'forum' },
+  videos: { id: 'videos', label: 'Videos', icon: 'play' },
+  notes: { id: 'notes', label: 'Notes', icon: 'article' },
+  labs: { id: 'labs', label: 'Labs', icon: 'science' },
+  about: { id: 'about', label: 'About', icon: 'info' },
+  admin: { id: 'admin', label: 'Admin workspace', icon: 'bolt' },
+  stats: { id: 'stats', label: 'Learner statistics', icon: 'group' },
+}
 
-const secondaryNavItems = [
-  { id: 'videos', label: 'Videos', icon: 'play' },
-  { id: 'notes', label: 'Notes', icon: 'article' },
-  { id: 'labs', label: 'Labs', icon: 'science' },
-  { id: 'downloads', label: 'Downloads', icon: 'download' },
-  { id: 'about', label: 'About', icon: 'info' },
-]
+const mobileNavItems = ['home', 'library', 'learning', 'community'].map((id) => navItemById[id])
+const desktopNavItems = ['home', 'library', 'learning', 'downloads', 'community'].map((id) => navItemById[id])
+const secondaryNavItems = ['videos', 'notes', 'labs', 'about'].map((id) => navItemById[id])
+const adminNavItems = ['admin', 'stats'].map((id) => navItemById[id])
 
 const typeByPage = {
   videos: 'video',
@@ -46,13 +51,12 @@ export default function Layout({
     .slice(0, 2)
     .toUpperCase()
 
-  const overflowItems = user?.isAdmin
-    ? [
-        ...secondaryNavItems,
-        { id: 'admin', label: 'Admin workspace', icon: 'bolt' },
-        { id: 'stats', label: 'Learner statistics', icon: 'group' },
-      ]
+  const desktopOverflowItems = user?.isAdmin
+    ? [...secondaryNavItems, ...adminNavItems]
     : secondaryNavItems
+  const mobileOverflowItems = user?.isAdmin
+    ? [navItemById.downloads, ...secondaryNavItems, ...adminNavItems]
+    : [navItemById.downloads, ...secondaryNavItems]
 
   const goTo = (id) => {
     setMenuOpen(false)
@@ -67,31 +71,89 @@ export default function Layout({
     }
   }
 
+  const overflowMenu = (id, items) => (
+    <div className="overflow-menu" id={id} role="menu">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          className={`menu-item ${activeId === item.id ? 'active' : ''}`}
+          role="menuitem"
+          onClick={() => goTo(item.id)}
+        >
+          <Icon name={item.icon} />
+          <span>{item.label}</span>
+        </button>
+      ))}
+      <button
+        className="menu-item"
+        role="menuitem"
+        onClick={() => {
+          setOverflowOpen(false)
+          toggleTheme()
+        }}
+      >
+        <Icon name={theme === 'light' ? 'darkMode' : 'lightMode'} />
+        <span>{theme === 'light' ? 'Dark theme' : 'Light theme'}</span>
+      </button>
+    </div>
+  )
+
   return (
     <div className="app-shell">
+      <nav className="side-nav" aria-label="Primary navigation">
+        <button className="side-logo" onClick={() => goTo('home')} aria-label="Aristotool home">
+          <LogoMark size={25} />
+        </button>
+
+        {desktopNavItems.map((item) => (
+          <button
+            key={item.id}
+            className={`side-item ${activeId === item.id ? 'active' : ''} ${
+              item.id === 'community' ? 'chat-nav' : ''
+            }`}
+            onClick={() => goTo(item.id)}
+            aria-current={activeId === item.id ? 'page' : undefined}
+          >
+            <Icon name={item.icon} size={22} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+
+        <div className="side-spacer" />
+
+        <div
+          className="overflow-wrap side-overflow"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setOverflowOpen(false)
+          }}
+        >
+          <button
+            className={`side-item ${overflowOpen ? 'active' : ''}`}
+            onClick={() => {
+              setOverflowOpen((open) => !open)
+              setMenuOpen(false)
+            }}
+            aria-label="More pages"
+            aria-expanded={overflowOpen}
+            aria-controls="desktop-page-menu"
+            aria-haspopup="menu"
+          >
+            <Icon name="menu" size={22} />
+            <span>More</span>
+          </button>
+          {overflowOpen && overflowMenu('desktop-page-menu', desktopOverflowItems)}
+        </div>
+      </nav>
+
       <header className="top-app-bar">
         <button className="brand" onClick={() => goTo('home')} aria-label="Aristotool home">
-          <span className="brand-mark">A</span>
+          <span className="brand-mark">
+            <LogoMark size={23} />
+          </span>
           <span className="brand-name">
             Aristo<span>tool</span>
           </span>
         </button>
-
-        <nav className="desktop-nav" aria-label="Primary navigation">
-          {primaryNavItems.map((item) => (
-            <button
-              key={item.id}
-              className={`${activeId === item.id ? 'active' : ''} ${
-                item.id === 'community' ? 'chat-nav' : ''
-              }`}
-              onClick={() => goTo(item.id)}
-              aria-current={activeId === item.id ? 'page' : undefined}
-            >
-              <Icon name={item.icon} size={19} />
-              <span className={item.id === 'community' ? 'chat-label' : undefined}>{item.label}</span>
-            </button>
-          ))}
-        </nav>
 
         <label className="search-box">
           <Icon name="search" size={20} />
@@ -112,7 +174,7 @@ export default function Layout({
         <div className="bar-spacer" />
 
         <div
-          className="overflow-wrap"
+          className="overflow-wrap mobile-overflow"
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) setOverflowOpen(false)
           }}
@@ -125,37 +187,13 @@ export default function Layout({
             }}
             aria-label="More pages"
             aria-expanded={overflowOpen}
-            aria-controls="page-menu"
+            aria-controls="mobile-page-menu"
+            aria-haspopup="menu"
           >
             <Icon name="menu" size={20} />
             <span>More</span>
           </button>
-          {overflowOpen && (
-            <div className="overflow-menu" id="page-menu" role="menu">
-              {overflowItems.map((item) => (
-                <button
-                  key={item.id}
-                  className={`menu-item ${activeId === item.id ? 'active' : ''}`}
-                  role="menuitem"
-                  onClick={() => goTo(item.id)}
-                >
-                  <Icon name={item.icon} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-              <button
-                className="menu-item"
-                role="menuitem"
-                onClick={() => {
-                  setOverflowOpen(false)
-                  toggleTheme()
-                }}
-              >
-                <Icon name={theme === 'light' ? 'darkMode' : 'lightMode'} />
-                <span>{theme === 'light' ? 'Dark theme' : 'Light theme'}</span>
-              </button>
-            </div>
-          )}
+          {overflowOpen && overflowMenu('mobile-page-menu', mobileOverflowItems)}
         </div>
 
         <button className="icon-button desktop-action" onClick={toggleTheme} aria-label="Toggle colour theme">
@@ -258,7 +296,7 @@ export default function Layout({
       <main className="main-area">{children}</main>
 
       <nav className="bottom-nav" aria-label="Mobile navigation">
-        {primaryNavItems.map((item) => (
+        {mobileNavItems.map((item) => (
           <button
             key={item.id}
             className={`${activeId === item.id ? 'active' : ''} ${
