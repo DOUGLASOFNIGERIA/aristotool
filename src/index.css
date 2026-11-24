@@ -126,6 +126,11 @@ a {
   gap: 10px;
   justify-self: start;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  appearance: none;
   color: var(--on-surface);
   text-decoration: none;
 }
@@ -213,6 +218,11 @@ a {
   width: 44px;
   height: 44px;
   margin-bottom: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  appearance: none;
   color: var(--primary);
   display: grid;
   place-items: center;
